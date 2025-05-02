@@ -37,87 +37,105 @@ export class GenerationService {
       "G1_U16", "G1_U17", "G1_U18", "G1_U19"
     ];
     const suffix = "ACTIVE_ENERGY_IMPORT_KWH";
-
+  
+    const solarKeys = ["G2_U20", "U_27"];
+    const transformerKeys = ["U_24", "U_25"];
+    const gensetKeys = ["G1_U16", "G1_U17", "G1_U18", "G1_U19"];
+  
     const projection: any = { timestamp: 1 };
     meterIds.forEach(id => projection[`${id}_${suffix}`] = 1);
-
+  
     const data = await this.generationModel.aggregate([
       { $match: { timestamp: { $gte: range.start, $lte: range.end } } },
       { $project: projection },
       { $sort: { timestamp: 1 } }
     ]);
-
-    if (!data || data.length < 2) return 0;
-
-    const first = data[0];
-    const last = data[data.length - 1];
-
-    let total = 0;
-    meterIds.forEach(id => {
-      const key = `${id}_${suffix}`;
-      const firstVal = first[key];
-      const lastVal = last[key];
-
-      if (typeof firstVal === 'number' && typeof lastVal === 'number') {
-        total += lastVal - firstVal;
+  
+    const firstValues: Record<string, number> = {};
+    const lastValues: Record<string, number> = {};
+  
+    for (const doc of data) {
+      for (const id of meterIds) {
+        const key = `${id}_${suffix}`;
+        if (doc[key] !== undefined && typeof doc[key] === 'number') {
+          if (!(key in firstValues)) {
+            firstValues[key] = doc[key];
+          }
+          lastValues[key] = doc[key];
+        }
       }
-    });
-
+    }
+  
+    let solars = 0;
+    let transformers = 0;
+    let gensets = 0;
+  
+    for (const key in firstValues) {
+      if (lastValues[key] !== undefined) {
+        const delta = lastValues[key] - firstValues[key];
+        const id = key.replace(`_${suffix}`, '');
+  
+        if (solarKeys.includes(id)) {
+          solars += delta;
+        } else if (transformerKeys.includes(id)) {
+          transformers += delta * 10;
+        } else if (gensetKeys.includes(id)) {
+          gensets += delta;
+        }
+      }
+    }
+  
+    const total = solars + transformers + gensets;
     return +total.toFixed(2);
   }
+  
+  
 
   async getWeeklyGeneration() {
     const result: { day: string; thisWeek: number; lastWeek: number }[] = [];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
+  
     const now = new Date();
     const currentDay = now.getDay() === 0 ? 7 : now.getDay(); // Sunday = 7
     const mondayThisWeek = new Date(now);
     mondayThisWeek.setDate(now.getDate() - (currentDay - 1));
     mondayThisWeek.setHours(0, 0, 0, 0);
-
-    const mondayLastWeek = new Date(mondayThisWeek);
-    mondayLastWeek.setDate(mondayThisWeek.getDate() - 7);
-
+  
     for (let i = 0; i < 7; i++) {
-      const thisWeekStart = new Date(mondayThisWeek);
-      thisWeekStart.setDate(mondayThisWeek.getDate() + i);
+      const thisWeekStart = new Date(mondayThisWeek.getTime());
+      thisWeekStart.setDate(thisWeekStart.getDate() + i);
       thisWeekStart.setHours(0, 0, 0, 0);
-
-      const thisWeekEnd = new Date(thisWeekStart);
+  
+      const thisWeekEnd = new Date(thisWeekStart.getTime());
       thisWeekEnd.setHours(23, 59, 59, 999);
-
-      const lastWeekStart = new Date(mondayLastWeek);
-      lastWeekStart.setDate(mondayLastWeek.getDate() + i);
+  
+      const lastWeekStart = new Date(thisWeekStart.getTime());
+      lastWeekStart.setDate(thisWeekStart.getDate() - 7);
       lastWeekStart.setHours(0, 0, 0, 0);
-
-      const lastWeekEnd = new Date(lastWeekStart);
+  
+      const lastWeekEnd = new Date(lastWeekStart.getTime());
       lastWeekEnd.setHours(23, 59, 59, 999);
-
+  
       const thisWeek = await this.calculateConsumption({
         start: thisWeekStart.toISOString(),
         end: thisWeekEnd.toISOString(),
       });
-
+  
       const lastWeek = await this.calculateConsumption({
         start: lastWeekStart.toISOString(),
         end: lastWeekEnd.toISOString(),
       });
-
+  
       result.push({
         day: days[i],
         thisWeek,
         lastWeek,
       });
     }
-
+  
     console.log("📊 Weekly Result:", result);
     return result;
   }
-
-  
-  
- 
 
   
   async getTodayGeneration() {

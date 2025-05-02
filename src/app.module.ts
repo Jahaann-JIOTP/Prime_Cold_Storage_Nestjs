@@ -21,6 +21,15 @@ import { DiagramService } from './diagram/diagram.service';
 import { DiagramModule } from './diagram/diagram.module';
 import { GenerationModule } from './dashboard/generation/generation.module';
 import { AlarmsModule } from './alarms/alarms.module';
+import { PieChartModule } from './dashboard/pie_chart/pie_chart.module';
+import { BellModule } from './alarms/bell/bell.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
+import { RolesModule } from './role/role.module';
+import { PrivilegesModule } from './privileges/privileges.module';
+
+
+
 
 
 @Module({
@@ -29,6 +38,12 @@ import { AlarmsModule } from './alarms/alarms.module';
     MongooseModule.forRoot('mongodb://admin:cisco123@13.234.241.103:27017/iotdb?authSource=iotdb'), // First connection (iotdb)
     MongooseModule.forRoot('mongodb://localhost:27017/Prime_Cold_Alarms', {
       connectionName: 'Prime_Cold_Alarms',
+     
+
+    }),
+    MongooseModule.forRoot('mongodb://localhost:27017/prime_cold', {
+      connectionName: 'prime_cold',
+
     }),
 
     DashboardModule,
@@ -43,6 +58,12 @@ import { AlarmsModule } from './alarms/alarms.module';
     EnergyModule,
     DiagramModule,
     AlarmsModule,
+    PieChartModule,
+    BellModule,
+    UsersModule,
+    AuthModule,
+    RolesModule,
+    PrivilegesModule
 
    
   ],

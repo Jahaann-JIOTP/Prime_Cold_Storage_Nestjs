@@ -1,11 +1,12 @@
-// src/schemas/recent-alarm.schema.ts
-
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
 export type RecentAlarmDocument = RecentAlarm & Document;
 
-@Schema({ collection: 'recent_alarms' })
+@Schema({
+  collection: 'PCS_recent_alarms',
+  timestamps: false // ✅ If you want createdAt / updatedAt, set to true
+})
 export class RecentAlarm {
   @Prop({ required: true })
   Source: string;
@@ -13,13 +14,13 @@ export class RecentAlarm {
   @Prop({ required: true })
   Status: string;
 
-  @Prop()
-  start_time: string;
+  @Prop({ type: String, default: null }) // Keep as String
+  start_time: string | null;
 
-  @Prop()
-  end_time: string;
+  @Prop({ type: String, default: null }) // Keep as String
+  end_time: string | null;
 
-  @Prop()
+  @Prop({ type: String, default: 'Ongoing' })
   duration: string;
 }
 
