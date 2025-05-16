@@ -7,24 +7,19 @@ import { DateTime } from 'luxon';
 export class DashboardService {
   
 constructor(
-    @InjectModel('GCL_ActiveTags') private readonly dashboardModel: Model<any>,
+    @InjectModel('prime_historical_data') private readonly dashboardModel: Model<any>,
   ) {}
   
 
   async getConsumption(startDate: string, endDate: string) {
     const meterIds = [
-      "G2_U20", "U_27", "U_24", "U_25", "G1_U16", "G1_U17", "G1_U18", "G1_U19"
+      "U2", "U1",
     ];
-    const suffixes = ["ACTIVE_ENERGY_IMPORT_KWH", "ACTIVE_ENERGY_EXPORT_KWH"];
-    const solarKeys = ["G2_U20_ACTIVE_ENERGY_IMPORT_KWH", "U_27_ACTIVE_ENERGY_IMPORT_KWH"];
-    const transformerImportKeys = ["U_24_ACTIVE_ENERGY_IMPORT_KWH", "U_25_ACTIVE_ENERGY_IMPORT_KWH"];
-    const transformerExportKeys = ["U_24_ACTIVE_ENERGY_EXPORT_KWH", "U_25_ACTIVE_ENERGY_EXPORT_KWH"];
-    const allGensetKeys = [
-      "G1_U16_ACTIVE_ENERGY_IMPORT_KWH",
-      "G1_U17_ACTIVE_ENERGY_IMPORT_KWH",
-      "G1_U18_ACTIVE_ENERGY_IMPORT_KWH",
-      "G1_U19_ACTIVE_ENERGY_IMPORT_KWH"
-    ];
+    const suffixes = ["Active_Energy_Total_Consumed", "Active_Energy_Total_Supplied"];
+    const solarKeys = ["U2_Active_Energy_Total_Consumed"];
+    const wapdaImportKeys = ["U1_Active_Energy_Total_Consumed"];
+    const wapdaExportKeys = ["U1_Active_Energy_Total_Supplied"];
+    
 
     const startISO = new Date(`${startDate}T00:00:00.000+05:00`);
     const endISO = new Date(`${endDate}T23:59:59.999+05:00`);
@@ -98,21 +93,21 @@ constructor(
 
     const total = {
       Solars: 0,
-      Transformers_Import: 0,
-      Transformers_Export: 0,
-      All_Genset: 0,
+      wapda_Import: 0,
+      wapda_Export: 0,
+      
     };
 
     Object.values(dailyConsumption).forEach((day: any) => {
       Object.entries(day).forEach(([key, value]) => {
         if (solarKeys.includes(key)) total.Solars += Number(value) || 0;
-        else if (transformerImportKeys.includes(key)) total.Transformers_Import += Number(value) || 0;
-        else if (transformerExportKeys.includes(key)) total.Transformers_Export += Number(value) || 0;
-        else if (allGensetKeys.includes(key)) total.All_Genset += Number(value) || 0;
+        else if (wapdaImportKeys.includes(key)) total.wapda_Import += Number(value) || 0;
+        else if (wapdaExportKeys.includes(key)) total.wapda_Export += Number(value) || 0;
+       
       });
     });
 
-    total.Transformers_Import *= 10;
+    
 
     return { total_consumption: total };
   }

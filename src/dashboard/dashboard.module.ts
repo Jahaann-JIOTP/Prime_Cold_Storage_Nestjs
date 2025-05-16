@@ -7,7 +7,7 @@ import { ActiveTagsSchema } from './schemas/dashboard.schema'; // Corrected the 
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: 'GCL_ActiveTags', schema: ActiveTagsSchema }]), // Use ActiveTagsSchema here
+    MongooseModule.forFeature([{ name: 'prime_historical_data', schema: ActiveTagsSchema }]), // Use ActiveTagsSchema here
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

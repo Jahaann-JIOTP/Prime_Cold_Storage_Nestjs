@@ -3,14 +3,14 @@ import axios from 'axios';
 
 @Injectable()
 export class DiagramService {
-  private readonly sourceUrl = 'http://13.234.241.103:1880/latestcbl';
+  private readonly sourceUrl = 'http://13.234.241.103:1880/prime_cold';
 
   private readonly meterTitles: Record<string, string> = {
-    "U_3_EM3": "Ozen 350",/*  */
-    "U_4_EM4": "Atlas Copco",
-    "U_5_EM5": "Compressor Aux",
-    "U_6_EM6": "Ganzair Compressor",
-    "U_7_EM7": "New Centac Com#2",
+    "U1": "Wapda",/*  */
+    "U2": "Solar",
+    "U3": "Compressor1",
+    "U4": "Compressor2",
+    "U5": "Compressor3",
     "U_8_EM8": "ML-132",
     "U_9_EM9": "New Centac Com#1",
     "U_15": "Dryer",

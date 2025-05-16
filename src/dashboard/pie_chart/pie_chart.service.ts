@@ -17,7 +17,7 @@ export class PieChartService {
         .find({
           UNIXtimestamp: { $gt: startTimestamp, $lte: endTimestamp },
         })
-        .select('G2_U20_ACTIVE_ENERGY_IMPORT_KWH U_27_ACTIVE_ENERGY_IMPORT_KWH U_24_ACTIVE_ENERGY_IMPORT_KWH U_25_ACTIVE_ENERGY_IMPORT_KWH')
+        .select('U2_Active_Energy_Total_Consumed  U1_Active_Energy_Total_Consumed U1_Active_Energy_Total_Supplied')
         .exec();
 
       console.log('Fetched Data:', data);
@@ -39,39 +39,51 @@ export class PieChartService {
         return 0;
       };
 
-      const solar1Arr = data.map((doc) => doc.G2_U20_ACTIVE_ENERGY_IMPORT_KWH).filter(Boolean);
-      const solar2Arr = data.map((doc) => doc.U_27_ACTIVE_ENERGY_IMPORT_KWH).filter(Boolean);
-      const trans1Arr = data.map((doc) => doc.U_24_ACTIVE_ENERGY_IMPORT_KWH).filter(Boolean);
-      const trans2Arr = data.map((doc) => doc.U_25_ACTIVE_ENERGY_IMPORT_KWH).filter(Boolean);
+      const solar1Arr = data.map((doc) => doc.U2_Active_Energy_Total_Consumed).filter(Boolean);
+      // const solar2Arr = data.map((doc) => doc.U_27_ACTIVE_ENERGY_IMPORT_KWH).filter(Boolean);
+      const trans1Arr = data.map((doc) => doc.U1_Active_Energy_Total_Consumed).filter(Boolean);
+      // const trans2Arr = data.map((doc) => doc.U_25_ACTIVE_ENERGY_IMPORT_KWH).filter(Boolean);
+      const trans2Arr = data.map((doc) => doc.U1_Active_Energy_Total_Supplied).filter(Boolean);
 
       const S_1 = getConsumption(solar1Arr);
-      const S_2 = getConsumption(solar2Arr);
+      // const S_2 = getConsumption(solar2Arr);
       const T_1 = getConsumption(trans1Arr);
+      // const T_2 = getConsumption(trans2Arr);
       const T_2 = getConsumption(trans2Arr);
 
-      const solarTotal = Math.max(S_1 + S_2, 0);
-      const transformerTotal = Math.max(T_1 + T_2, 0);
+      const solarTotal = Math.max(S_1 , 0);
+      const transformerTotal = Math.max(T_1 , 0);
+      const transformer2Total = Math.max(T_2 , 0);
 
-      console.log('Solar 1:', S_1, 'Solar 2:', S_2);
-      console.log('Transformer 1:', T_1, 'Transformer 2:', T_2);
+      console.log('Solar 1:', S_1);
+      console.log('Transformer Import:', T_1);
 
       return [
         {
-          category: 'Solars',
+          category: 'Solar',
           total: solarTotal,
           color: '#e67f22',
           subData: [
             { name: 'Solar 1', value: S_1 },
-            { name: 'Solar 2', value: S_2 },
+            // { name: 'Solar 2', value: S_2 },
           ],
         },
         {
-          category: 'Transformers',
+          category: 'TransformerImport',
           total: transformerTotal,
           color: '#2980b9',
           subData: [
-            { name: 'Transformer 1', value: T_1 },
-            { name: 'Transformer 2', value: T_2 },
+            { name: 'Transformer Import', value: T_1 },
+            // { name: 'Transformer 2', value: T_2 },
+          ],
+        },
+         {
+          category: 'TransformerExport',
+          total: transformer2Total,
+          color: '#27ae60',
+          subData: [
+            { name: 'Transformer Export', value: T_2 },
+            // { name: 'Solar 2', value: S_2 },
           ],
         },
       ];

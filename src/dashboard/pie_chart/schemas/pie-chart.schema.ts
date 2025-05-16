@@ -3,23 +3,23 @@ import { Schema, Document } from 'mongoose';
 
 export const PieChartSchema = new Schema(
   {
-    G2_U20_ACTIVE_ENERGY_IMPORT_KWH: Number,
-    U_27_ACTIVE_ENERGY_IMPORT_KWH: Number,
-    U_24_ACTIVE_ENERGY_IMPORT_KWH: Number, // Transformer 1
-    U_25_ACTIVE_ENERGY_IMPORT_KWH: Number, // Transformer 2
+    U2_Active_Energy_Total_Consumed: Number,
+    U1_Active_Energy_Total_Consumed: Number,
+    U1_Active_Energy_Total_Supplied: Number, // Transformer 1
+    // Transformer 2
     PLC_Date_Time: Date,
     UNIXtimestamp: Number,
   },
   {
-    collection: 'GCL_ActiveTags',
+    collection: 'prime_historical_data',
   }
 );
 
 export interface PieChart extends Document {
-  G2_U20_ACTIVE_ENERGY_IMPORT_KWH: number;
-  U_27_ACTIVE_ENERGY_IMPORT_KWH: number;
-  U_24_ACTIVE_ENERGY_IMPORT_KWH: number;
-  U_25_ACTIVE_ENERGY_IMPORT_KWH: number;
+  U2_Active_Energy_Total_Consumed: number;
+  U1_Active_Energy_Total_Consumed: number;
+  U1_Active_Energy_Total_Supplied: number;
+ 
   PLC_Date_Time: Date;
   UNIXtimestamp: number;
 }

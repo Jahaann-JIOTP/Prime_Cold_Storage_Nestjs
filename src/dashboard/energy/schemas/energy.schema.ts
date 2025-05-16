@@ -3,7 +3,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
 export type EnergyDocument = Energy & Document;
-@Schema({ collection: 'GCL_ActiveTags' })
+@Schema({ collection: 'prime_historical_data' })
 
 export class Energy {
   @Prop()
