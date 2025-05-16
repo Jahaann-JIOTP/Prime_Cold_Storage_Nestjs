@@ -27,6 +27,9 @@ import { ConVsProController } from './dashboard/con_vs_pro/con_vs_pro.controller
 import { ConVsProService } from './dashboard/con_vs_pro/con_vs_pro.service';
 import { DiagramController } from './diagram/diagram.controller';
 import { DiagramService } from './diagram/diagram.service';
+import { Compressor2Module } from './compressor2/compressor2.module';
+import { Compressor3Module } from './compressor3/compressor3.module';
+import { Compressor1Module } from './compressor1/compressor1.module';
 
 
 @Module({
@@ -62,6 +65,9 @@ import { DiagramService } from './diagram/diagram.service';
     AuthModule,
     RolesModule,
     PrivilegesModule,
+    Compressor2Module,
+    Compressor3Module,
+    Compressor1Module,
     
   ],
   controllers: [AppController, SolarController, ConVsProController, DiagramController],

@@ -9,8 +9,8 @@ import * as moment from 'moment';
 export class TransformerService {
   private readonly client: MongoClient;
   private readonly dbName = 'iotdb';
-  private readonly collectionName = 'GCL_ActiveTags';
-  private readonly transformerKeys = ['U_24_ACTIVE_ENERGY_IMPORT_KWH', 'U_25_ACTIVE_ENERGY_IMPORT_KWH'];
+  private readonly collectionName = 'prime_historical_data';
+  private readonly transformerKeys = ['U1_Active_Energy_Total_Consumed'];
 
   constructor() {
     this.client = new MongoClient('mongodb://admin:cisco123@13.234.241.103:27017/?authSource=iotdb');

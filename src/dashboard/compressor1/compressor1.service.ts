@@ -1,16 +1,17 @@
-// src/solar/solar.service.ts
+
+
 import { Injectable } from '@nestjs/common';
 import { MongoClient } from 'mongodb';
-import { GetSolarDto } from './dto/get-solar.dto';
+import { Getcompressor1Dto } from './dto/get-compressor1.dto';
 import * as moment from 'moment';
 
 
 @Injectable()
-export class SolarService {
+export class Compressor1Service{
   private readonly client: MongoClient;
   private readonly dbName = 'iotdb';
   private readonly collectionName = 'prime_historical_data';
-  private readonly solarKeys = ['U2_Active_Energy_Total_Consumed'];
+  private readonly Compressor2Keys = ['U3_Active_Energy_Total_Consumed'];
 
   constructor() {
     this.client = new MongoClient('mongodb://admin:cisco123@13.234.241.103:27017/?authSource=iotdb');
@@ -25,7 +26,7 @@ export class SolarService {
 
 
 
-  async handleQuery(query: GetSolarDto) {
+  async handleQuery(query: Getcompressor1Dto) {
     switch (query.value) {
       case 'today':
         return this.getTodayData();
@@ -57,7 +58,7 @@ export class SolarService {
     };
 
     const projection: any = { timestamp: 1 };
-    this.solarKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
       .aggregate([
@@ -75,7 +76,7 @@ export class SolarService {
       const hour = date.getHours().toString().padStart(2, '0') + ':00';
       const type = date.toDateString() === new Date().toDateString() ? 'Today' : 'Yesterday';
 
-      for (const key of this.solarKeys) {
+      for (const key of this.Compressor2Keys) {
         if (doc[key] != null) {
           firstValues[hour] ??= {};
           lastValues[hour] ??= {};
@@ -96,7 +97,7 @@ export class SolarService {
       let todayTotal = 0;
       let yesterdayTotal = 0;
 
-      for (const key of this.solarKeys) {
+      for (const key of this.Compressor2Keys) {
         if (
           firstValues?.[hourStr]?.['Today']?.[key] != null &&
           lastValues?.[hourStr]?.['Today']?.[key] != null
@@ -143,7 +144,7 @@ export class SolarService {
     };
 
     const projection: any = { timestamp: 1 };
-    this.solarKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
       .aggregate([
@@ -162,7 +163,7 @@ export class SolarService {
       const weekLabel =
         date >= startOfThisWeek && date <= endOfThisWeek ? 'This Week' : 'Last Week';
 
-      for (const key of this.solarKeys) {
+      for (const key of this.Compressor2Keys) {
         if (doc[key] != null) {
           firstValues[day] ??= {};
           lastValues[day] ??= {};
@@ -184,7 +185,7 @@ export class SolarService {
       let thisWeekTotal = 0;
       let lastWeekTotal = 0;
 
-      for (const key of this.solarKeys) {
+      for (const key of this.Compressor2Keys) {
         if (
           firstValues?.[day]?.['This Week']?.[key] != null &&
           lastValues?.[day]?.['This Week']?.[key] != null
@@ -226,7 +227,7 @@ export class SolarService {
     };
   
     const projection: any = { timestamp: 1 };
-    this.solarKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
   
     try {
       const data = await collection.aggregate([
@@ -253,7 +254,7 @@ export class SolarService {
           dailyLastValues[year][dateStr] = {};
         }
   
-        this.solarKeys.forEach(key => {
+        this.Compressor2Keys.forEach(key => {
           if (doc[key] != null) {
             if (!(key in dailyFirstValues[year][dateStr])) {
               dailyFirstValues[year][dateStr][key] = doc[key];
@@ -279,7 +280,7 @@ export class SolarService {
           const month = moment(date).format('MMM');
   
           let dailyTotal = 0;
-          this.solarKeys.forEach(key => {
+          this.Compressor2Keys.forEach(key => {
             const first = dailyFirstValues[year][dateStr][key];
             const last = dailyLastValues[year][dateStr][key];
             if (first != null && last != null) {
@@ -327,7 +328,7 @@ export class SolarService {
     };
 
     const projection: any = { timestamp: 1 };
-    this.solarKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
         .aggregate([
@@ -347,7 +348,7 @@ export class SolarService {
             dailyConsumption[formattedDate] = {};
         }
 
-        for (const key of this.solarKeys) {
+        for (const key of this.Compressor2Keys) {
             if (doc[key] != null) {
                 if (!dailyConsumption[formattedDate][key]) {
                     dailyConsumption[formattedDate][key] = { first: null, last: null };
@@ -388,7 +389,7 @@ export class SolarService {
         const dateData = dailyConsumption[date];
         let totalConsumption = 0;
 
-        for (const key of this.solarKeys) {
+        for (const key of this.Compressor2Keys) {
             const keyData = dateData[key];
             if (keyData && keyData.first != null && keyData.last != null) {
                 totalConsumption += keyData.last - keyData.first;

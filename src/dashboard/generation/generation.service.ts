@@ -33,14 +33,13 @@ export class GenerationService {
 
   private async calculateConsumption(range: { start: string; end: string }) {
     const meterIds = [
-      "G2_U20", "U_27", "U_24", "U_25",
-      "G1_U16", "G1_U17", "G1_U18", "G1_U19"
+      "U1", "U2",
     ];
-    const suffix = "ACTIVE_ENERGY_IMPORT_KWH";
+    const suffix = "Active_Energy_Total_Consumed";
   
-    const solarKeys = ["G2_U20", "U_27"];
-    const transformerKeys = ["U_24", "U_25"];
-    const gensetKeys = ["G1_U16", "G1_U17", "G1_U18", "G1_U19"];
+    const solarKeys = ["U1"];
+    const transformerKeys = ["U2"];
+   
   
     const projection: any = { timestamp: 1 };
     meterIds.forEach(id => projection[`${id}_${suffix}`] = 1);
@@ -78,10 +77,8 @@ export class GenerationService {
         if (solarKeys.includes(id)) {
           solars += delta;
         } else if (transformerKeys.includes(id)) {
-          transformers += delta * 10;
-        } else if (gensetKeys.includes(id)) {
-          gensets += delta;
-        }
+          transformers += delta;
+        } 
       }
     }
   
@@ -142,8 +139,8 @@ export class GenerationService {
     const todayRange = this.getDayRange(0); // today
     const yesterdayRange = this.getDayRange(-1); // yesterday
   
-    const meterIds = ["G2_U20", "U_27", "U_24", "U_25", "G1_U16", "G1_U17", "G1_U18", "G1_U19"];
-    const suffix = "ACTIVE_ENERGY_IMPORT_KWH";
+    const meterIds = ["U1", "U2"];
+    const suffix = "Active_Energy_Total_Consumed";
     const projection = { timestamp: 1 };
   
     meterIds.forEach(id => projection[`${id}_${suffix}`] = 1);

@@ -1,6 +1,6 @@
 import { IsIn, IsString } from 'class-validator';
 
-export class GetgensetDto {
+export class Getcompressor1Dto {
   @IsString()
   @IsIn(['today', 'week', 'month', 'year'], {
     message: 'value must be one of: today, week, month, or year',

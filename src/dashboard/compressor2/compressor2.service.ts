@@ -1,16 +1,16 @@
-// src/solar/solar.service.ts
+
 import { Injectable } from '@nestjs/common';
 import { MongoClient } from 'mongodb';
-import { GetgensetDto } from './dto/get-genset.dto';
+import { Getcompressor2Dto } from './dto/get-compressor.dto';
 import * as moment from 'moment';
 
 
 @Injectable()
-export class GensetService {
+export class Compressor2Service{
   private readonly client: MongoClient;
   private readonly dbName = 'iotdb';
-  private readonly collectionName = 'GCL_ActiveTags';
-  private readonly gensetKeys = ['G1_U16_ACTIVE_ENERGY_IMPORT_KWH', 'G1_U17_ACTIVE_ENERGY_IMPORT_KWH', 'G1_U18_ACTIVE_ENERGY_IMPORT_KWH', 'G1_U19_ACTIVE_ENERGY_IMPORT_KWH'];
+  private readonly collectionName = 'prime_historical_data';
+  private readonly Compressor2Keys = ['U4_Active_Energy_Total_Consumed'];
 
   constructor() {
     this.client = new MongoClient('mongodb://admin:cisco123@13.234.241.103:27017/?authSource=iotdb');
@@ -25,7 +25,7 @@ export class GensetService {
 
 
 
-  async handleQuery(query: GetgensetDto) {
+  async handleQuery(query: Getcompressor2Dto) {
     switch (query.value) {
       case 'today':
         return this.getTodayData();
@@ -57,7 +57,7 @@ export class GensetService {
     };
 
     const projection: any = { timestamp: 1 };
-    this.gensetKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
       .aggregate([
@@ -75,7 +75,7 @@ export class GensetService {
       const hour = date.getHours().toString().padStart(2, '0') + ':00';
       const type = date.toDateString() === new Date().toDateString() ? 'Today' : 'Yesterday';
 
-      for (const key of this.gensetKeys) {
+      for (const key of this.Compressor2Keys) {
         if (doc[key] != null) {
           firstValues[hour] ??= {};
           lastValues[hour] ??= {};
@@ -96,7 +96,7 @@ export class GensetService {
       let todayTotal = 0;
       let yesterdayTotal = 0;
 
-      for (const key of this.gensetKeys) {
+      for (const key of this.Compressor2Keys) {
         if (
           firstValues?.[hourStr]?.['Today']?.[key] != null &&
           lastValues?.[hourStr]?.['Today']?.[key] != null
@@ -143,7 +143,7 @@ export class GensetService {
     };
 
     const projection: any = { timestamp: 1 };
-    this.gensetKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
       .aggregate([
@@ -162,7 +162,7 @@ export class GensetService {
       const weekLabel =
         date >= startOfThisWeek && date <= endOfThisWeek ? 'This Week' : 'Last Week';
 
-      for (const key of this.gensetKeys) {
+      for (const key of this.Compressor2Keys) {
         if (doc[key] != null) {
           firstValues[day] ??= {};
           lastValues[day] ??= {};
@@ -184,7 +184,7 @@ export class GensetService {
       let thisWeekTotal = 0;
       let lastWeekTotal = 0;
 
-      for (const key of this.gensetKeys) {
+      for (const key of this.Compressor2Keys) {
         if (
           firstValues?.[day]?.['This Week']?.[key] != null &&
           lastValues?.[day]?.['This Week']?.[key] != null
@@ -226,7 +226,7 @@ export class GensetService {
     };
   
     const projection: any = { timestamp: 1 };
-    this.gensetKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
   
     try {
       const data = await collection.aggregate([
@@ -253,7 +253,7 @@ export class GensetService {
           dailyLastValues[year][dateStr] = {};
         }
   
-        this.gensetKeys.forEach(key => {
+        this.Compressor2Keys.forEach(key => {
           if (doc[key] != null) {
             if (!(key in dailyFirstValues[year][dateStr])) {
               dailyFirstValues[year][dateStr][key] = doc[key];
@@ -279,7 +279,7 @@ export class GensetService {
           const month = moment(date).format('MMM');
   
           let dailyTotal = 0;
-          this.gensetKeys.forEach(key => {
+          this.Compressor2Keys.forEach(key => {
             const first = dailyFirstValues[year][dateStr][key];
             const last = dailyLastValues[year][dateStr][key];
             if (first != null && last != null) {
@@ -327,7 +327,7 @@ export class GensetService {
     };
 
     const projection: any = { timestamp: 1 };
-    this.gensetKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
         .aggregate([
@@ -347,7 +347,7 @@ export class GensetService {
             dailyConsumption[formattedDate] = {};
         }
 
-        for (const key of this.gensetKeys) {
+        for (const key of this.Compressor2Keys) {
             if (doc[key] != null) {
                 if (!dailyConsumption[formattedDate][key]) {
                     dailyConsumption[formattedDate][key] = { first: null, last: null };
@@ -388,7 +388,7 @@ export class GensetService {
         const dateData = dailyConsumption[date];
         let totalConsumption = 0;
 
-        for (const key of this.gensetKeys) {
+        for (const key of this.Compressor2Keys) {
             const keyData = dateData[key];
             if (keyData && keyData.first != null && keyData.last != null) {
                 totalConsumption += keyData.last - keyData.first;

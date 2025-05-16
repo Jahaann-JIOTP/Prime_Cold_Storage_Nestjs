@@ -1,6 +1,6 @@
 import { Schema, Document } from 'mongoose';
 
-export const gensetSchema = new Schema({
+export const Compressor2Schema = new Schema({
   timestamp: { type: Date, required: true },
   energyValue1: { type: Number, required: true },
   energyValue2: { type: Number, required: true },
