@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-@Schema({ collection: 'GCL_new' })
+@Schema({ collection: 'prime_historical_data' })
 export class EnergyUsage extends Document {
   @Prop()
   timestamp: string;

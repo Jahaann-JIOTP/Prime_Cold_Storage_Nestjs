@@ -28,7 +28,7 @@ export class UsersController {
   @Post('register')
 @UseGuards(AuthGuard('jwt'))
 async register(@Body() createUserDto: CreateUserDto, @Req() req) {
-  console.log('req.user:', req.user); // 👈👈 yahan lagao
+  console.log('req.user:', req.user); 
 
   const currentUserRole = req.user?.role || 'User';
   

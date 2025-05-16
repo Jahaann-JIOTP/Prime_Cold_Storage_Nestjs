@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Bell, BellDocument } from './schemas/bell.schema';
 import { Alarm, AlarmDocument } from './schemas/alarm.schema'; // ✅ Import alarm schema
+import * as moment from 'moment-timezone';
 
 @Injectable()
 export class BellService {
@@ -35,8 +36,12 @@ export class BellService {
       db_value: alarm.db_value,
       url_value: alarm.url_value,
       alarm_count: alarm.alarm_count,
-      time: alarm.current_time,
-      end_time: alarm.end_time,
+      start_time:  alarm.current_time
+      ? moment(alarm.current_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss')
+      : null,
+      end_time: alarm.end_time
+      ? moment(alarm.end_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss')
+      : null,
     }));
   
     await this.bellModel.deleteMany({});

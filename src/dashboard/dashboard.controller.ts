@@ -15,11 +15,11 @@ export class DashboardController {
       return { error: 'start_date and end_date are required' };
     }
     return this.dashboardService.getConsumption(startDate, endDate);
-  }
-  @Get('today')
-  async getTodayData() {
-    return await this.dashboardService.getTodayData();
   }}
+  // @Get('today')
+  // async getTodayData() {
+  //   return await this.dashboardService.getTodayData();
+  // }}
 
 
 

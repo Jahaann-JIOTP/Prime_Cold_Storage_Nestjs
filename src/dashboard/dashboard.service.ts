@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 
 @Injectable()
 export class DashboardService {
-  // src/dashboard/dashboard.service.ts
+  
 constructor(
     @InjectModel('GCL_ActiveTags') private readonly dashboardModel: Model<any>,
   ) {}
@@ -116,133 +116,133 @@ constructor(
 
     return { total_consumption: total };
   }
-  async getTodayData(): Promise<any> {
-    // Set the start and end of today and yesterday in UTC
-    const today = DateTime.utc().startOf('day');
-    const todayEnd = today.endOf('day');
+  // async getTodayData(): Promise<any> {
+  //   // Set the start and end of today and yesterday in UTC
+  //   const today = DateTime.utc().startOf('day');
+  //   const todayEnd = today.endOf('day');
 
-    const yesterday = today.minus({ days: 1 });
-    const yesterdayEnd = yesterday.endOf('day');
+  //   const yesterday = today.minus({ days: 1 });
+  //   const yesterdayEnd = yesterday.endOf('day');
 
-    // Solar keys to fetch
-    const solarKeys = [
-      'G2_U20_ACTIVE_ENERGY_IMPORT_KWH',
-      'U_27_ACTIVE_ENERGY_IMPORT_KWH',
-    ];
+  //   // Solar keys to fetch
+  //   const solarKeys = [
+  //     'G2_U20_ACTIVE_ENERGY_IMPORT_KWH',
+  //     'U_27_ACTIVE_ENERGY_IMPORT_KWH',
+  //   ];
 
-    try {
-      // Log the date range for debugging purposes
-      console.log('Today Start:', today.toJSDate());
-      console.log('Today End:', todayEnd.toJSDate());
-      console.log('Yesterday Start:', yesterday.toJSDate());
-      console.log('Yesterday End:', yesterdayEnd.toJSDate());
+  //   try {
+  //     // Log the date range for debugging purposes
+  //     console.log('Today Start:', today.toJSDate());
+  //     console.log('Today End:', todayEnd.toJSDate());
+  //     console.log('Yesterday Start:', yesterday.toJSDate());
+  //     console.log('Yesterday End:', yesterdayEnd.toJSDate());
 
-      // Fetch data for today
-      const todayData = await this.dashboardModel.aggregate([
-        { $match: { timestamp: { $gte: today.toJSDate(), $lte: todayEnd.toJSDate() } } },
-        { $project: { timestamp: 1, ...this.createProjection(solarKeys) } },
-        { $sort: { timestamp: 1 } },
-      ]);
+  //     // Fetch data for today
+  //     const todayData = await this.dashboardModel.aggregate([
+  //       { $match: { timestamp: { $gte: today.toJSDate(), $lte: todayEnd.toJSDate() } } },
+  //       { $project: { timestamp: 1, ...this.createProjection(solarKeys) } },
+  //       { $sort: { timestamp: 1 } },
+  //     ]);
 
-      // Fetch data for yesterday
-      const yesterdayData = await this.dashboardModel.aggregate([
-        { $match: { timestamp: { $gte: yesterday.toJSDate(), $lte: yesterdayEnd.toJSDate() } } },
-        { $project: { timestamp: 1, ...this.createProjection(solarKeys) } },
-        { $sort: { timestamp: 1 } },
-      ]);
+  //     // Fetch data for yesterday
+  //     const yesterdayData = await this.dashboardModel.aggregate([
+  //       { $match: { timestamp: { $gte: yesterday.toJSDate(), $lte: yesterdayEnd.toJSDate() } } },
+  //       { $project: { timestamp: 1, ...this.createProjection(solarKeys) } },
+  //       { $sort: { timestamp: 1 } },
+  //     ]);
 
-      // Log the retrieved data for today and yesterday
-      console.log('Today Data:', todayData);
-      console.log('Yesterday Data:', yesterdayData);
+  //     // Log the retrieved data for today and yesterday
+  //     console.log('Today Data:', todayData);
+  //     console.log('Yesterday Data:', yesterdayData);
 
-      // Process the data
-      const todayValues = this.processData(todayData, solarKeys);
-      const yesterdayValues = this.processData(yesterdayData, solarKeys);
+  //     // Process the data
+  //     const todayValues = this.processData(todayData, solarKeys);
+  //     const yesterdayValues = this.processData(yesterdayData, solarKeys);
 
-      // Log the processed values
-      console.log('Processed Today Values:', todayValues);
-      console.log('Processed Yesterday Values:', yesterdayValues);
+  //     // Log the processed values
+  //     console.log('Processed Today Values:', todayValues);
+  //     console.log('Processed Yesterday Values:', yesterdayValues);
 
-      // Calculate hourly consumption for both today and yesterday
-      const hourlyConsumption: any[] = [];
+  //     // Calculate hourly consumption for both today and yesterday
+  //     const hourlyConsumption: any[] = [];
 
-      for (let hour = 0; hour < 24; hour++) {
-        const hourStr = String(hour).padStart(2, '0') + ":00";
-        let totalToday = 0;
-        let totalYesterday = 0;
+  //     for (let hour = 0; hour < 24; hour++) {
+  //       const hourStr = String(hour).padStart(2, '0') + ":00";
+  //       let totalToday = 0;
+  //       let totalYesterday = 0;
 
-        solarKeys.forEach((key) => {
-          if (
-            todayValues.firstValues[hourStr] &&
-            todayValues.lastValues[hourStr] &&
-            todayValues.firstValues[hourStr][key] !== undefined &&
-            todayValues.lastValues[hourStr][key] !== undefined
-          ) {
-            totalToday += todayValues.lastValues[hourStr][key] - todayValues.firstValues[hourStr][key];
-          }
+  //       solarKeys.forEach((key) => {
+  //         if (
+  //           todayValues.firstValues[hourStr] &&
+  //           todayValues.lastValues[hourStr] &&
+  //           todayValues.firstValues[hourStr][key] !== undefined &&
+  //           todayValues.lastValues[hourStr][key] !== undefined
+  //         ) {
+  //           totalToday += todayValues.lastValues[hourStr][key] - todayValues.firstValues[hourStr][key];
+  //         }
 
-          if (
-            yesterdayValues.firstValues[hourStr] &&
-            yesterdayValues.lastValues[hourStr] &&
-            yesterdayValues.firstValues[hourStr][key] !== undefined &&
-            yesterdayValues.lastValues[hourStr][key] !== undefined
-          ) {
-            totalYesterday += yesterdayValues.lastValues[hourStr][key] - yesterdayValues.firstValues[hourStr][key];
-          }
-        });
+  //         if (
+  //           yesterdayValues.firstValues[hourStr] &&
+  //           yesterdayValues.lastValues[hourStr] &&
+  //           yesterdayValues.firstValues[hourStr][key] !== undefined &&
+  //           yesterdayValues.lastValues[hourStr][key] !== undefined
+  //         ) {
+  //           totalYesterday += yesterdayValues.lastValues[hourStr][key] - yesterdayValues.firstValues[hourStr][key];
+  //         }
+  //       });
 
-        hourlyConsumption.push({
-          Time: hourStr,
-          Today: this.round(totalToday, 2),
-          Yesterday: this.round(totalYesterday, 2),
-        });
-      }
+  //       hourlyConsumption.push({
+  //         Time: hourStr,
+  //         Today: this.round(totalToday, 2),
+  //         Yesterday: this.round(totalYesterday, 2),
+  //       });
+  //     }
 
-      // Return hourly consumption data
-      return hourlyConsumption;
+  //     // Return hourly consumption data
+  //     return hourlyConsumption;
 
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      throw new Error('Error fetching data: ' + error.message);
-    }
-  }
+  //   } catch (error) {
+  //     console.error('Error fetching data:', error);
+  //     throw new Error('Error fetching data: ' + error.message);
+  //   }
+  // }
 
-  // Helper function to create projection dynamically
-  createProjection(keys: string[]): any {
-    const projection: any = { timestamp: 1 };
-    keys.forEach((key) => {
-      projection[key] = 1;
-    });
-    return projection;
-  }
+  // // Helper function to create projection dynamically
+  // createProjection(keys: string[]): any {
+  //   const projection: any = { timestamp: 1 };
+  //   keys.forEach((key) => {
+  //     projection[key] = 1;
+  //   });
+  //   return projection;
+  // }
 
-  // Process the data to get first and last values for each hour
-  processData(data: any[], keys: string[]): any {
-    const firstValues: any = {};
-    const lastValues: any = {};
+  // // Process the data to get first and last values for each hour
+  // processData(data: any[], keys: string[]): any {
+  //   const firstValues: any = {};
+  //   const lastValues: any = {};
 
-    data.forEach((document) => {
-      const dateTime = DateTime.fromJSDate(document.timestamp);
-      const hour = dateTime.toFormat('HH:00');
+  //   data.forEach((document) => {
+  //     const dateTime = DateTime.fromJSDate(document.timestamp);
+  //     const hour = dateTime.toFormat('HH:00');
 
-      if (!firstValues[hour]) firstValues[hour] = {};
-      if (!lastValues[hour]) lastValues[hour] = {};
+  //     if (!firstValues[hour]) firstValues[hour] = {};
+  //     if (!lastValues[hour]) lastValues[hour] = {};
 
-      keys.forEach((key) => {
-        if (document[key] !== undefined) {
-          if (!firstValues[hour][key]) {
-            firstValues[hour][key] = document[key];
-          }
-          lastValues[hour][key] = document[key];
-        }
-      });
-    });
+  //     keys.forEach((key) => {
+  //       if (document[key] !== undefined) {
+  //         if (!firstValues[hour][key]) {
+  //           firstValues[hour][key] = document[key];
+  //         }
+  //         lastValues[hour][key] = document[key];
+  //       }
+  //     });
+  //   });
 
-    return { firstValues, lastValues };
-  }
+  //   return { firstValues, lastValues };
+  // }
 
-  // Helper function to round values to 2 decimal places
-  round(value: number, decimals: number): number {
-    return Number(Math.round(Number(value + 'e' + decimals)) + 'e-' + decimals);
-  }
+  // // Helper function to round values to 2 decimal places
+  // round(value: number, decimals: number): number {
+  //   return Number(Math.round(Number(value + 'e' + decimals)) + 'e-' + decimals);
+  // }
 }

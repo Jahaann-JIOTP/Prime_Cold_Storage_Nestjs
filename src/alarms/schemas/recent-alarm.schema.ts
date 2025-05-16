@@ -3,10 +3,11 @@ import { Document } from 'mongoose';
 
 export type RecentAlarmDocument = RecentAlarm & Document;
 
-@Schema({
-  collection: 'PCS_recent_alarms',
-  timestamps: false // ✅ If you want createdAt / updatedAt, set to true
-})
+// @Schema({
+//   collection: 'PCS_recent_alarms',
+//   timestamps: false // ✅ If you want createdAt / updatedAt, set to true
+// })
+@Schema()
 export class RecentAlarm {
   @Prop({ required: true })
   Source: string;

@@ -3,7 +3,8 @@ import { Document } from 'mongoose';
 
 export type BellDocument = Bell & Document;
 
-@Schema({collection: 'bell'})
+// @Schema({collection: 'bell'})
+@Schema()
 export class Bell {
   @Prop()
   source: string;
@@ -24,10 +25,10 @@ export class Bell {
   alarm_count: number;
 
   @Prop()
-  current_time: Date;
+  current_time: string;
 
   @Prop()
-  end_time: Date;
+  end_time: string;
 }
 
 export const BellSchema = SchemaFactory.createForClass(Bell);

@@ -41,7 +41,7 @@ export class AlarmsService {
     const meters = await this.meterModel.find();
   
     const alarmConditions = {
-      'Low Voltage': (db: number, urlValue: number) => urlValue >= db,
+      'Low Voltage': (db: number, urlValue: number) => urlValue <= db,
       'High Voltage': (db: number, urlValue: number) => urlValue >= db,
       'High Current': (db: number, urlValue: number) => urlValue >= db,
     };
@@ -278,115 +278,102 @@ return alarms.map(alarm => ({
   
   
   
-  async checkRecentAlarms(filter: string) {
-    const today = moment().tz('Asia/Karachi').format('YYYY-MM-DD');
-    
-    let startDate: string;
-    let endDate: string;
-  
-    // Calculate the start and end dates based on the filter
-    switch (filter.toLowerCase()) {
-      case 'today':
-        startDate = `${today} 00:00:00`;
-        endDate = `${today} 23:59:59`;
-        break;
-      case 'last7days':
-        startDate = moment().tz('Asia/Karachi').subtract(7, 'days').startOf('day').format('YYYY-MM-DD HH:mm:ss');
-        endDate = moment().tz('Asia/Karachi').subtract(1, 'days').endOf('day').format('YYYY-MM-DD HH:mm:ss');
-        break;
-      case 'last15days':
-        startDate = moment().tz('Asia/Karachi').subtract(15, 'days').startOf('day').format('YYYY-MM-DD HH:mm:ss');
-        endDate = moment().tz('Asia/Karachi').subtract(1, 'days').endOf('day').format('YYYY-MM-DD HH:mm:ss');
-        break;
-      case 'last30days':
-        startDate = moment().tz('Asia/Karachi').subtract(30, 'days').startOf('day').format('YYYY-MM-DD HH:mm:ss');
-        endDate = moment().tz('Asia/Karachi').subtract(1, 'days').endOf('day').format('YYYY-MM-DD HH:mm:ss');
-        break;
-      default:
-        throw new Error("Invalid filter provided.");
-    }
-  
-    // Query the alarms within the time range
-    const alarms = await this.alarmModel.find({
-      current_time: { $gte: startDate, $lte: endDate }
-    }).sort({ current_time: -1 });
-  
-    // Filter unique alarms by Source and Status
-    const uniqueAlarms = alarms.filter((value, index, self) =>
-      index === self.findIndex((t) =>
-        t.Source === value.Source && t.Status === value.Status
-      )
-    );
-  
-    // Format the alarm data with duration
-    const formattedAlarms = uniqueAlarms.map(alarm => {
-      let durationFormatted: string | null = null;
-  
-      if (alarm.end_time) {
-        const endTime = moment(alarm.end_time).tz('Asia/Karachi');
-        const startTime = moment(alarm.current_time).tz('Asia/Karachi');
-        const duration = moment.duration(endTime.diff(startTime));
-  
-        const hours = Math.floor(duration.asHours());
-        const minutes = duration.minutes();
-        const seconds = duration.seconds();
-  
-        const parts: string[] = [];
-        if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
-        if (minutes > 0) parts.push(`${minutes} min${minutes > 1 ? 's' : ''}`);
-        if (seconds > 0) parts.push(`${seconds} sec${seconds > 1 ? 's' : ''}`);
-  
-        durationFormatted = parts.join(' ');
-      }
-  
-      return {
-        Source: alarm.Source || 'Unknown',
-        Status: alarm.Status || 'Unknown',
-        start_time: moment(alarm.current_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss'),
-        end_time: alarm.end_time ? moment(alarm.end_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss') : null,
-        duration: durationFormatted || 'Ongoing',
-      };
-    });
-  
-    // Check if there are new alarms to be saved
-    if (formattedAlarms.length > 0) {
-      try {
-        // Log the formatted alarms for debugging
-        console.log('Formatted alarms to be inserted:', formattedAlarms);
-  
-        // Check if any of the alarms already exist in the database
-        const existingAlarms = await this.recentAlarmModel.find({
-          Source: { $in: formattedAlarms.map(alarm => alarm.Source) },
-          Status: { $in: formattedAlarms.map(alarm => alarm.Status) },
-          start_time: { $in: formattedAlarms.map(alarm => alarm.start_time) },
-        });
-        
-        const newAlarms = formattedAlarms.filter(alarm => 
-          !existingAlarms.some(existingAlarm => 
-            existingAlarm.Source === alarm.Source && 
-            existingAlarm.Status === alarm.Status && 
-            existingAlarm.start_time === alarm.start_time
-          )
-        );
-        
-  
-        // Log the new alarms that will be inserted
-        console.log('New alarms to be inserted:', newAlarms);
-  
-        // Insert new alarms into the database if any
-        if (newAlarms.length > 0) {
-          await this.recentAlarmModel.insertMany(newAlarms, { ordered: false });
-          console.log('✅ New alarms inserted successfully!');
-        } else {
-          console.log('No new alarms to insert.');
-        }
-      } catch (err) {
-        console.error('❌ Error while inserting new alarms:', err.message);
-      }
-    }
-  
-    return formattedAlarms;
+ async checkRecentAlarms(filter: string) {
+  let startDate: Date;
+  let endDate: Date;
+
+  // ✅ Set start and end dates based on filter
+  switch (filter.toLowerCase()) {
+    case 'today':
+      startDate = moment().tz('Asia/Karachi').startOf('day').toDate();
+      endDate = moment().tz('Asia/Karachi').endOf('day').toDate();
+      break;
+    case 'last7days':
+      startDate = moment().tz('Asia/Karachi').subtract(7, 'days').startOf('day').toDate();
+      endDate = moment().tz('Asia/Karachi').subtract(1, 'days').endOf('day').toDate();
+      break;
+    case 'last15days':
+      startDate = moment().tz('Asia/Karachi').subtract(15, 'days').startOf('day').toDate();
+      endDate = moment().tz('Asia/Karachi').subtract(1, 'days').endOf('day').toDate();
+      break;
+    case 'last30days':
+      startDate = moment().tz('Asia/Karachi').subtract(30, 'days').startOf('day').toDate();
+      endDate = moment().tz('Asia/Karachi').subtract(1, 'days').endOf('day').toDate();
+      break;
+    default:
+      throw new Error("Invalid filter provided.");
   }
+
+  // ✅ Query alarms using Date type comparison
+  const alarms = await this.alarmModel.find({
+    current_time: { $gte: startDate, $lte: endDate }
+  }).sort({ current_time: -1 });
+
+  const uniqueAlarms = alarms.filter((value, index, self) =>
+    index === self.findIndex((t) =>
+      t.Source === value.Source && t.Status === value.Status
+    )
+  );
+
+  const formattedAlarms = uniqueAlarms.map(alarm => {
+    let durationFormatted: string | null = null;
+
+    if (alarm.end_time) {
+      const endTime = moment(alarm.end_time).tz('Asia/Karachi');
+      const startTime = moment(alarm.current_time).tz('Asia/Karachi');
+      const duration = moment.duration(endTime.diff(startTime));
+
+      const hours = Math.floor(duration.asHours());
+      const minutes = duration.minutes();
+      const seconds = duration.seconds();
+
+      const parts: string[] = [];
+      if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+      if (minutes > 0) parts.push(`${minutes} min${minutes > 1 ? 's' : ''}`);
+      if (seconds > 0) parts.push(`${seconds} sec${seconds > 1 ? 's' : ''}`);
+
+      durationFormatted = parts.join(' ');
+    }
+
+    return {
+      Source: alarm.Source || 'Unknown',
+      Status: alarm.Status || 'Unknown',
+      start_time: moment(alarm.current_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss'),
+      end_time: alarm.end_time ? moment(alarm.end_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss') : null,
+      duration: durationFormatted || 'Ongoing',
+    };
+  });
+
+  if (formattedAlarms.length > 0) {
+    try {
+      const existingAlarms = await this.recentAlarmModel.find({
+        Source: { $in: formattedAlarms.map(alarm => alarm.Source) },
+        Status: { $in: formattedAlarms.map(alarm => alarm.Status) },
+        start_time: { $in: formattedAlarms.map(alarm => alarm.start_time) },
+      });
+
+      const newAlarms = formattedAlarms.filter(alarm =>
+        !existingAlarms.some(existingAlarm =>
+          existingAlarm.Source === alarm.Source &&
+          existingAlarm.Status === alarm.Status &&
+          existingAlarm.start_time === alarm.start_time
+        )
+      );
+
+      if (newAlarms.length > 0) {
+        await this.recentAlarmModel.insertMany(newAlarms, { ordered: false });
+        console.log('✅ New alarms inserted successfully!');
+      } else {
+        console.log('No new alarms to insert.');
+      }
+    } catch (err) {
+      console.error('❌ Error while inserting new alarms:', err.message);
+    }
+  }
+
+  return formattedAlarms;
+}
+
   
   
   
