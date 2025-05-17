@@ -5,7 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { SolarModule } from './dashboard/solar/solar.module';
-import { GensetModule } from './dashboard/genset/genset.module';
+
 import { TransformerModule } from './dashboard/transformer/transformer.module';
 import { ConVsProModule } from './dashboard/con_vs_pro/con_vs_pro.module';
 import { TrendsModule } from './trends/trends.module';
@@ -27,9 +27,10 @@ import { ConVsProController } from './dashboard/con_vs_pro/con_vs_pro.controller
 import { ConVsProService } from './dashboard/con_vs_pro/con_vs_pro.service';
 import { DiagramController } from './diagram/diagram.controller';
 import { DiagramService } from './diagram/diagram.service';
-import { Compressor2Module } from './compressor2/compressor2.module';
-import { Compressor3Module } from './compressor3/compressor3.module';
-import { Compressor1Module } from './compressor1/compressor1.module';
+import { Compressor2Module } from './dashboard/compressor2/compressor2.module';
+import { Compressor3Module } from './dashboard/compressor3/compressor3.module';
+import { Compressor1Module } from './dashboard/compressor1/compressor1.module';
+import { LogsModule } from './diagram/logs/logs.module';
 
 
 @Module({
@@ -49,7 +50,6 @@ import { Compressor1Module } from './compressor1/compressor1.module';
     // Your app modules
     DashboardModule,
     SolarModule,
-    GensetModule,
     TransformerModule,
     ConVsProModule,
     TrendsModule,
@@ -68,6 +68,7 @@ import { Compressor1Module } from './compressor1/compressor1.module';
     Compressor2Module,
     Compressor3Module,
     Compressor1Module,
+    LogsModule,
     
   ],
   controllers: [AppController, SolarController, ConVsProController, DiagramController],
