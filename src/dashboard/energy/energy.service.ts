@@ -15,8 +15,8 @@ export class EnergyService {
     const suffixes: string[] = ['Active_Energy_Total_Consumed'];
 
 
-    const solarKeys = ['U1_Active_Energy_Total_Consumed'];
-    const WapdaKeys = ['U2_Active_Energy_Total_Consumed'];
+    const solarKeys = ['U2_Active_Energy_Total_Consumed'];
+    const WapdaKeys = ['U1_Active_Energy_Total_Consumed'];
     
 
        const Compressor1Key = 'U3_Active_Energy_Total_Consumed';
@@ -83,14 +83,15 @@ export class EnergyService {
     let unaccountable = totalConsumption - production;
 
     return {
-      total_consumption: {
-        Total_Consumption: totalConsumption.toFixed(5),
-        // Ball_Mill_4: ballMill4.toFixed(5),
-        // Compressor2: Compressor2.toFixed(5),
-        // Glaze_Line2Consumption: Compressor3.toFixed(5),
-        Unaccountable_Energy: unaccountable.toFixed(5),
-        Sum_of_compressors: production.toFixed(5),
-      },
-    };
+  total_consumption: {
+    Total_Consumption: totalConsumption.toFixed(5),
+    Compressor1: Compressor1.toFixed(5),
+    Compressor2: Compressor2.toFixed(5),
+    Compressor3: Compressor3.toFixed(5),
+    Unaccountable_Energy: unaccountable.toFixed(5),
+    Sum_of_compressors: production.toFixed(5),
+  },
+};
+
   }
 }
