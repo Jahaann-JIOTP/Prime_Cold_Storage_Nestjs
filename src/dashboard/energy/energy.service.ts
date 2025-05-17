@@ -85,13 +85,16 @@ export class EnergyService {
     return {
   total_consumption: {
     Total_Consumption: totalConsumption.toFixed(5),
+    Solar: solar.toFixed(5),
+    Wapda: Wapda.toFixed(5),
     Compressor1: Compressor1.toFixed(5),
     Compressor2: Compressor2.toFixed(5),
     Compressor3: Compressor3.toFixed(5),
-    Unaccountable_Energy: unaccountable.toFixed(5),
     Sum_of_compressors: production.toFixed(5),
+    Unaccountable_Energy: unaccountable.toFixed(5),
   },
 };
+
 
   }
 }
