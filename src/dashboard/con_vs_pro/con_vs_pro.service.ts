@@ -59,8 +59,8 @@ async getPowerAverages(startDate: string, endDate: string) {
       $group: {
         _id: "$hourStart",
 
-        first_solar: { $first: { $ifNull: ["$U2_Active_Energy_Total_Consumed", 0] } },
-        last_solar: { $last: { $ifNull: ["$U2_Active_Energy_Total_Consumed", 0] } },
+        first_solar: { $first: { $ifNull: ["$U2_Active_Energy_Total", 0] } },
+        last_solar: { $last: { $ifNull: ["$U2_Active_Energy_Total", 0] } },
 
         first_wapda: { $first: { $ifNull: ["$U1_Active_Energy_Total_Consumed", 0] } },
         last_wapda: { $last: { $ifNull: ["$U1_Active_Energy_Total_Consumed", 0] } },
@@ -150,7 +150,7 @@ async getDailyPowerAverages(start: string, end: string) {
   const meterIds = ["U1", "U2", "U3", "U4", "U5"];
   const suffixes: string[] = ['Active_Energy_Total_Consumed'];
 
-  const solarKeys = ['U2_Active_Energy_Total_Consumed'];
+  const solarKeys = ['U2_Active_Energy_Total'];
   const WapdaKeys = ['U1_Active_Energy_Total_Consumed'];
 
   const Compressor1Key = 'U3_Active_Energy_Total_Consumed';
@@ -275,7 +275,7 @@ async getMonthlyAverages(startDate: string, endDate: string) {
   const endISO = new Date(endDate + 'T23:59:59.999Z');
 
   const meterFields = [
-    { name: 'solar', field: 'U2_Active_Energy_Total_Consumed' },
+    { name: 'solar', field: 'U2_Active_Energy_Total' },
     { name: 'wapda', field: 'U1_Active_Energy_Total_Consumed' },
     { name: 'compressor1', field: 'U3_Active_Energy_Total_Consumed' },
     { name: 'compressor2', field: 'U4_Active_Energy_Total_Consumed' },

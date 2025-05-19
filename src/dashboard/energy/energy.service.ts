@@ -12,11 +12,12 @@ export class EnergyService {
 
   async getConsumption(start: string, end: string) {
     const meterIds = [ "U1", "U2", "U3", "U4", "U5"];
-    const suffixes: string[] = ['Active_Energy_Total_Consumed'];
+    const suffixes: string[] = ['Active_Energy_Total_Consumed', 'Active_Energy_Total', 'Active_Energy_Total_Supplied'];
 
 
-    const solarKeys = ['U2_Active_Energy_Total_Consumed'];
+    const solarKeys = ['U2_Active_Energy_Total'];
     const WapdaKeys = ['U1_Active_Energy_Total_Consumed'];
+    const Wapda2Keys = ['U1_Active_Energy_Total_Supplied'];
     
 
        const Compressor1Key = 'U3_Active_Energy_Total_Consumed';
@@ -72,6 +73,7 @@ export class EnergyService {
 
     let solar = sumGroup(solarKeys);
     let Wapda = sumGroup(WapdaKeys);
+    let Wapda2 = sumGroup(Wapda2Keys);
    
     let totalConsumption = solar + Wapda;
 
@@ -86,7 +88,8 @@ export class EnergyService {
   total_consumption: {
     Total_Consumption: totalConsumption.toFixed(5),
     Solar: solar.toFixed(5),
-    Wapda: Wapda.toFixed(5),
+    Wapda_Import: Wapda.toFixed(5),
+     Wapda_Export: Wapda2.toFixed(5),
     Compressor1: Compressor1.toFixed(5),
     Compressor2: Compressor2.toFixed(5),
     Compressor3: Compressor3.toFixed(5),

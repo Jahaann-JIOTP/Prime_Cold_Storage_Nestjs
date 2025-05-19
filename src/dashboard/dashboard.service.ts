@@ -15,8 +15,8 @@ constructor(
     const meterIds = [
       "U2", "U1",
     ];
-    const suffixes = ["Active_Energy_Total_Consumed", "Active_Energy_Total_Supplied"];
-    const solarKeys = ["U2_Active_Energy_Total_Consumed"];
+    const suffixes = ["Active_Energy_Total_Consumed", "Active_Energy_Total_Supplied", "Active_Energy_Total"];
+    const solarKeys = ["U2_Active_Energy_Total"];
     const wapdaImportKeys = ["U1_Active_Energy_Total_Consumed"];
     const wapdaExportKeys = ["U1_Active_Energy_Total_Supplied"];
     

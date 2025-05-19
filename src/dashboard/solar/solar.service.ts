@@ -10,7 +10,7 @@ export class SolarService {
   private readonly client: MongoClient;
   private readonly dbName = 'iotdb';
   private readonly collectionName = 'prime_historical_data';
-  private readonly solarKeys = ['U2_Active_Energy_Total_Consumed'];
+  private readonly solarKeys = ['U2_Active_Energy_Total'];
 
   constructor() {
     this.client = new MongoClient('mongodb://admin:cisco123@13.234.241.103:27017/?authSource=iotdb');
