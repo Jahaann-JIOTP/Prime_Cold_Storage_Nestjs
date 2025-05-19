@@ -13,7 +13,9 @@ export class EnergyCostService {
   async getConsumptionData(dto: GetEnergyCostDto) {
     const { start_date, end_date, meterIds, suffixes } = dto;
 
-    const suffixArray = suffixes?.split(',').map(s => s.trim()) || [];
+ const suffixArray = suffixes || [];
+
+
 
     const startOfRange = `${start_date}T00:00:00.000+05:00`;
     const endOfRange = `${end_date}T23:59:59.999+05:00`;

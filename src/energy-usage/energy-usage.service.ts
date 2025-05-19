@@ -20,7 +20,7 @@ export class EnergyUsageService {
 
   async getEnergyUsage(dto: EnergyUsageDto): Promise<EnergyUsageResult[]> {
     const { start_date, end_date, meterIds, suffixes } = dto;
-    const suffixArray = suffixes?.split(',').map(s => s.trim()) || [];
+     const suffixArray = suffixes || [];
 
     const start = new Date(start_date);
     const end = new Date(end_date);

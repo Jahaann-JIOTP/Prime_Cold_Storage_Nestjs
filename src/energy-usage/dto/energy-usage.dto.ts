@@ -1,4 +1,4 @@
-import { IsArray, IsString, IsDateString } from 'class-validator';
+import { IsArray, IsString, IsDateString, IsOptional } from 'class-validator';
 
 export class EnergyUsageDto {
   @IsDateString()
@@ -10,6 +10,8 @@ export class EnergyUsageDto {
   @IsArray()
   meterIds: string[];
 
-  @IsString()
-  suffixes: string;
+  @IsOptional()  // optional if sometimes suffixes is not provided
+  @IsArray()
+  @IsString({ each: true })  // validate each element of suffixes is a string
+  suffixes?: string[];
 }
