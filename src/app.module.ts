@@ -35,6 +35,7 @@ import { LogsDataModule } from './diagram/logs_data/logs_data.module';
 
 
 
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -72,6 +73,7 @@ import { LogsDataModule } from './diagram/logs_data/logs_data.module';
     Compressor1Module,
     // LogsModule,
     LogsDataModule,
+   
     
   ],
   controllers: [AppController, SolarController, ConVsProController, DiagramController],

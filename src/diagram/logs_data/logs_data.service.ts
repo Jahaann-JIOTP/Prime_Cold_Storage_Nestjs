@@ -4,7 +4,6 @@ import { Connection } from "mongoose";
 import { LogsQueryDto } from "./dto/logs-query.dto";
 import * as moment from 'moment-timezone';
 
-
 @Injectable()
 export class LogsDataService {
   constructor(@InjectConnection() private readonly connection: Connection) {}
@@ -25,27 +24,37 @@ export class LogsDataService {
       "Active_Power_L3",
       "Total_Active_Power",
     ],
+    power_factor: [
+      "Power_Factor_L1",
+      "Power_Factor_L2",
+      "Power_Factor_L3",
+    ],
+    reactive_energy: [
+      "Reactive_Energy_Total", // Default tag, but will override for U4 meterId below
+    ],
+    apparent_energy: [
+      "Apparent_Energy_Total",
+    ],
+    active_energy: [
+      "Active_Energy_Total",
+      "Active_Energy_Total_Consumed",
+      "Active_Energy_Total_Supplied"
+    ],
   };
 
   async fetchLogs(query: LogsQueryDto) {
     const { type, meters, start_date, end_date } = query;
 
-    const tagsToFetch = this.tagGroups[type];
-    if (!tagsToFetch) {
+    const baseTags = this.tagGroups[type];
+    if (!baseTags) {
       return { success: false, message: "Invalid type specified." };
     }
 
     const meterIds = meters.split(",");
     const db = this.connection.useDb("iotdb");
-
     const collectionName = "prime_historical_data";
     const collection = db.collection(collectionName);
 
-    // ✅ Properly create date strings with UTC timezone
-    const { start_date: startDate, end_date: endDate } = query;
-
-    // const startISO = new Date(startDate + "T00:00:00.842+05:00");
-    // const endISO = new Date(endDate + "T23:59:59.842+05:00");
     const startISO = `${start_date}T00:00:00.000+05:00`;
     const endISO = `${end_date}T23:59:59.999+05:00`;
 
@@ -69,9 +78,22 @@ export class LogsDataService {
                 .tz("Asia/Karachi")
                 .format("YYYY-MM-DDTHH:mm:ss.SSSZ")
             : null,
-
           meterId,
         };
+
+        // Dynamic tag selection based on meterId and type
+        let tagsToFetch = baseTags;
+
+        if (type === "reactive_energy") {
+          if (meterId === "U4") {
+            tagsToFetch = ["Reactive_Energy_M4_Total"];
+          } else if (["U1", "U2", "U3", "U5"].includes(meterId)) {
+            tagsToFetch = ["Reactive_Energy_Total"];
+          } else {
+            // No tags for other meterIds (optional)
+            tagsToFetch = [];
+          }
+        }
 
         for (const tag of tagsToFetch) {
           const field = `${meterId}_${tag}`;
@@ -94,7 +116,6 @@ export class LogsDataService {
           }
         }
 
-        // Only include entry if it has tags
         if (Object.keys(entry).length > 2) {
           results.push(entry);
         }

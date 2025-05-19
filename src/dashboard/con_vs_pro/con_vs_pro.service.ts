@@ -65,9 +65,7 @@ async getPowerAverages(startDate: string, endDate: string) {
         first_wapda: { $first: { $ifNull: ["$U1_Active_Energy_Total_Consumed", 0] } },
         last_wapda: { $last: { $ifNull: ["$U1_Active_Energy_Total_Consumed", 0] } },
 
-        first_wapda_Export: { $first: { $ifNull: ["$U1_Active_Energy_Total_Supplied", 0] } },
-        last_wapda_Export: { $last: { $ifNull: ["$U1_Active_Energy_Total_Supplied", 0] } },
-
+        
 
         first_compressor1: { $first: { $ifNull: ["$U3_Active_Energy_Total_Consumed", 0] } },
         last_compressor1: { $last: { $ifNull: ["$U3_Active_Energy_Total_Consumed", 0] } },
@@ -89,13 +87,13 @@ async getPowerAverages(startDate: string, endDate: string) {
   return data.map((entry) => {
     const solar = (entry.last_solar || 0) - (entry.first_solar || 0);
     const wapda = (entry.last_wapda || 0) - (entry.first_wapda || 0);
-     const wapda_Export = (entry.last_wapda_Export || 0) - (entry.first_wapda_Export || 0);
+    
 
     const compressor1 = (entry.last_compressor1 || 0) - (entry.first_compressor1 || 0);
     const compressor2 = (entry.last_compressor2 || 0) - (entry.first_compressor2 || 0);
     const compressor3 = (entry.last_compressor3 || 0) - (entry.first_compressor3 || 0);
 
-    const sum_of_compressors = compressor1 + compressor2 + compressor3 +wapda_Export;
+    const sum_of_compressors = compressor1 + compressor2 + compressor3;
     const total_consumption = solar + wapda;
     // const unaccounted = total_consumption - sum_of_compressors;
  const losses = total_consumption - sum_of_compressors;
@@ -158,7 +156,7 @@ async getDailyPowerAverages(start: string, end: string) {
 
   const solarKeys = ['U2_Active_Energy_Total'];
   const WapdaKeys = ['U1_Active_Energy_Total_Consumed'];
-  const Wapda2Keys = ['U1_Active_Energy_Total_Supplied'];
+  
 
   const Compressor1Key = 'U3_Active_Energy_Total_Consumed';
   const Compressor2Key = 'U4_Active_Energy_Total_Consumed';
@@ -220,13 +218,13 @@ async getDailyPowerAverages(start: string, end: string) {
 
     const solar = sumGroup(solarKeys);
     const wapda = sumGroup(WapdaKeys);
-    const wapda_Export = sumGroup(Wapda2Keys);
+  
     const totalConsumption = solar + wapda;
 
     const compressor1 = consumption[Compressor1Key] || 0;
     const compressor2 = consumption[Compressor2Key] || 0;
     const compressor3 = consumption[Compressor3Key] || 0;
-    const totalCompressors = compressor1 + compressor2 + compressor3 + wapda_Export;
+    const totalCompressors = compressor1 + compressor2 + compressor3 ;
 
     // const unaccounted = totalConsumption - totalCompressors;
      const losses = totalConsumption - totalCompressors;
@@ -285,7 +283,7 @@ async getMonthlyAverages(startDate: string, endDate: string) {
   const meterFields = [
     { name: 'solar', field: 'U2_Active_Energy_Total' },
     { name: 'wapda', field: 'U1_Active_Energy_Total_Consumed' },
-     { name: 'wapda_Export', field: 'U1_Active_Energy_Total_Supplied' },
+    
     { name: 'compressor1', field: 'U3_Active_Energy_Total_Consumed' },
     { name: 'compressor2', field: 'U4_Active_Energy_Total_Consumed' },
     { name: 'compressor3', field: 'U5_Active_Energy_Total_Consumed' },
@@ -354,7 +352,7 @@ async getMonthlyAverages(startDate: string, endDate: string) {
           date: monthStr,
           solar: 0,
           wapda: 0,
-          wapda_Export:0,
+          
           compressor1: 0,
           compressor2: 0,
           compressor3: 0,
@@ -366,7 +364,7 @@ async getMonthlyAverages(startDate: string, endDate: string) {
 
   const final = Object.values(results).map((entry: any) => {
     const totalCompressors =
-      entry.compressor1 + entry.compressor2 + entry.compressor3 + entry.wapda_Export;
+      entry.compressor1 + entry.compressor2 + entry.compressor3;
     const totalConsumption = entry.solar + entry.wapda;
     // const unaccounted = totalConsumption - totalCompressors;
     const losses = totalConsumption - totalCompressors;
