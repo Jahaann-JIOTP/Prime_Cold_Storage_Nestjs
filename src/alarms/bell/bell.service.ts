@@ -9,8 +9,8 @@ import * as moment from 'moment-timezone';
 @Injectable()
 export class BellService {
   constructor(
-    @InjectModel(Bell.name, 'Prime_Cold_Alarms') private bellModel: Model<BellDocument>,
-    @InjectModel(Alarm.name, 'Prime_Cold_Alarms') private alarmModel: Model<AlarmDocument>,
+    @InjectModel(Bell.name, 'prime_cold') private bellModel: Model<BellDocument>,
+    @InjectModel(Alarm.name, 'prime_cold') private alarmModel: Model<AlarmDocument>,
   ) {}
   
   async fetchBellData() {
@@ -32,16 +32,16 @@ export class BellService {
     const bellData = latestAlarms.map((alarm) => ({
       source: alarm.Source,
       status: alarm.status1,
-      value: alarm.Value,
-      db_value: alarm.db_value,
-      url_value: alarm.url_value,
-      alarm_count: alarm.alarm_count,
+      // value: alarm.Value,
+      // db_value: alarm.db_value,
+      // url_value: alarm.url_value,
+      // alarm_count: alarm.alarm_count,
       start_time:  alarm.current_time
       ? moment(alarm.current_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss')
       : null,
-      end_time: alarm.end_time
-      ? moment(alarm.end_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss')
-      : null,
+      // end_time: alarm.end_time
+      // ? moment(alarm.end_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss')
+      // : null,
     }));
   
     await this.bellModel.deleteMany({});
@@ -54,7 +54,7 @@ export class BellService {
     const bell_status = new_alarm_triggered ? 'red' : 'blue';
   
     return {
-      bell_status,
+      // bell_status,
       alarms: bellData,
     };
   }

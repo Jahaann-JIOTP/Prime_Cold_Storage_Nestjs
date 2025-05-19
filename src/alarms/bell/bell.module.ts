@@ -13,7 +13,7 @@ import { BellService } from './bell.service';
         { name: Alarm.name, schema: AlarmSchema },
         { name: Bell.name, schema: BellSchema },
       ],
-      'Prime_Cold_Alarms', // <- Connection name
+      'prime_cold', // <- Connection name
     ),
   ],
   controllers: [BellController],
