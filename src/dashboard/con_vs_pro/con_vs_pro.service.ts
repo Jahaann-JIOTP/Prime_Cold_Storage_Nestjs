@@ -100,7 +100,7 @@ async getPowerAverages(startDate: string, endDate: string) {
     const formattedDate = `${hourDate.getFullYear()}-${String(hourDate.getMonth()+1).padStart(2,'0')}-${String(hourDate.getDate()).padStart(2,'0')} ${String(hourDate.getHours()).padStart(2,'0')}:00`;
 
     return {
-      datetime: formattedDate,
+      date: formattedDate,
       solar: +solar.toFixed(2),
       wapda: +wapda.toFixed(2),
       compressor1: +compressor1.toFixed(2),
@@ -342,7 +342,7 @@ async getMonthlyAverages(startDate: string, endDate: string) {
       const monthStr = item.month.toISOString().slice(0, 7);
       if (!results[monthStr]) {
         results[monthStr] = {
-          month: monthStr,
+          date: monthStr,
           solar: 0,
           wapda: 0,
           compressor1: 0,
