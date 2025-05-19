@@ -10,15 +10,15 @@ import { RecentAlarm, RecentAlarmSchema } from './schemas/recent-alarm.schema';
   imports: [
     MongooseModule.forFeature(
       [{ name: Alarm.name, schema: AlarmSchema }],
-      'Prime_Cold_Alarms',
+      'prime_cold',
     ),
     MongooseModule.forFeature(
       [{ name: Meter.name, schema: MeterSchema }],
-      'Prime_Cold_Alarms',
+      'prime_cold',
     ),
     MongooseModule.forFeature(
       [{ name: RecentAlarm.name, schema: RecentAlarmSchema }],
-      'Prime_Cold_Alarms',
+      'prime_cold',
     ),
   ],
   controllers: [AlarmsController],

@@ -12,13 +12,13 @@ import { RecentAlarm, RecentAlarmDocument } from './schemas/recent-alarm.schema'
 @Injectable()
 export class AlarmsService {
   constructor(
-    @InjectModel(Alarm.name, 'Prime_Cold_Alarms')
+    @InjectModel(Alarm.name, 'prime_cold')
     private readonly alarmModel: Model<AlarmDocument>,
 
-    @InjectModel(Meter.name, 'Prime_Cold_Alarms')
+    @InjectModel(Meter.name, 'prime_cold')
     private readonly meterModel: Model<MeterDocument>,
 
-    @InjectModel(RecentAlarm.name, 'Prime_Cold_Alarms')
+    @InjectModel(RecentAlarm.name, 'prime_cold')
     private readonly recentAlarmModel: Model<RecentAlarmDocument>
   ) 
   {}
@@ -26,7 +26,7 @@ export class AlarmsService {
 
 
   async checkAlarms() {
-    const url = 'http://13.234.241.103:1880/latestgcl1';
+    const url = 'http://13.234.241.103:1880/prime_cold';
     let url_data: any;
   
     try {
@@ -47,19 +47,22 @@ export class AlarmsService {
     };
   
     const mapping = {
-      'Solar1 Low Voltage': 'G2_U20_VOLTAGE_L_L_AVG_V',
-      'Solar1 High Voltage': 'G2_U20_VOLTAGE_L_L_AVG_V',
-      'Solar1 High Current': 'G2_U20_CURRENT_TOTAL_A',
-      'Solar2 Low Voltage': 'U_27_VOLTAGE_L_L_AVG_V',
-      'Solar2 High Voltage': 'U_27_VOLTAGE_L_L_AVG_V',
-      'Solar2 High Current': 'U_27_CURRENT_AVG_A',
-      'Transformer1 Low Voltage': 'U_24_VOLTAGE_L_L_AVG_V',
-      'Transformer1 High Voltage': 'U_24_VOLTAGE_L_L_AVG_V',
-      'Transformer1 High Current': 'U_24_CURRENT_TOTAL_A',
-      'AirCompressors1 Low Voltage': 'U_5_VOLTAGE_L_L_AVG_V',
-      'AirCompressors1 High Voltage': 'U_5_VOLTAGE_L_L_AVG_V',
-      'AirCompressors1 High Current': 'U_5_CURRENT_TOTAL_A',
-      'BallMills1 Low Voltage': 'U_23_VOLTAGE_L_L_AVG_V',
+      'Solar1 Low Voltage': 'U1_Voltage_AVG',
+      'Solar1 High Voltage': 'U1_Voltage_AVG',
+      'Solar1 High Current': 'U1_Current_AVG',
+      'Wapda Low Voltage': 'U2_Voltage_AVG',
+      'Wapda High Voltage': 'U2_Voltage_AVG',
+      'Wapda High Current': 'U2_Current_AVG',
+      'Compressor1 Low Voltage': 'U3_Voltage_AVG',
+      'Compressor1 High Voltage': 'U3_Voltage_AVG',
+      'Compressor1 High Current': 'U3_Current_AVG',
+      'Compressor2 Low Voltage': 'U4_Voltage_AVG',
+      'Compressor2 High Voltage': 'U4_Voltage_AVG',
+      'Compressor2 High Current': 'U4_Current_AVG',
+      'Compressor3 Low Voltage': 'U5_Voltage_AVG',
+      'Compressor3 High Voltage': 'U5_Voltage_AVG',
+      'Compressor3 High Current': 'U5_Current_AVG',
+     
     };
   
     const now = moment().tz('Asia/Karachi');
