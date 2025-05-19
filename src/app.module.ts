@@ -30,7 +30,9 @@ import { DiagramService } from './diagram/diagram.service';
 import { Compressor2Module } from './dashboard/compressor2/compressor2.module';
 import { Compressor3Module } from './dashboard/compressor3/compressor3.module';
 import { Compressor1Module } from './dashboard/compressor1/compressor1.module';
-import { LogsModule } from './diagram/logs/logs.module';
+// import { LogsModule } from './logs/logs.module';
+import { LogsDataModule } from './diagram/logs_data/logs_data.module';
+
 
 
 @Module({
@@ -68,7 +70,8 @@ import { LogsModule } from './diagram/logs/logs.module';
     Compressor2Module,
     Compressor3Module,
     Compressor1Module,
-    LogsModule,
+    // LogsModule,
+    LogsDataModule,
     
   ],
   controllers: [AppController, SolarController, ConVsProController, DiagramController],
