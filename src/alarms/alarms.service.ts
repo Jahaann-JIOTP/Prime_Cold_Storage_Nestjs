@@ -54,7 +54,7 @@ export class AlarmsService {
 
     const alarmConditions = {
       'Low Voltage': (db: number, urlValue: number) => urlValue <= db,
-      'High Voltage': (db: number, urlValue: number) => urlValue <= db,
+      'High Voltage': (db: number, urlValue: number) => urlValue >= db,
       'High Current': (db: number, urlValue: number) => urlValue >= db,
     };
 

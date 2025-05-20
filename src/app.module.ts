@@ -32,6 +32,9 @@ import { Compressor3Module } from './dashboard/compressor3/compressor3.module';
 import { Compressor1Module } from './dashboard/compressor1/compressor1.module';
 // import { LogsModule } from './logs/logs.module';
 import { LogsDataModule } from './diagram/logs_data/logs_data.module';
+import { PrimeColdHrsModule } from './prime-cold-hrs/prime-cold-hrs.module';
+
+
 
 
 
@@ -73,6 +76,9 @@ import { LogsDataModule } from './diagram/logs_data/logs_data.module';
     Compressor1Module,
     // LogsModule,
     LogsDataModule,
+    PrimeColdHrsModule,
+    
+    
    
     
   ],
