@@ -1,72 +1,65 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as moment from 'moment-timezone';
 import { Bell, BellDocument } from './schemas/bell.schema';
-import { Alarm, AlarmDocument } from './schemas/alarm.schema';
 
 @Injectable()
 export class BellService {
-  private readonly logger = new Logger(BellService.name);
-
   constructor(
-    @InjectModel(Bell.name, 'prime_cold') private bellModel: Model<BellDocument>,
-    @InjectModel(Alarm.name, 'prime_cold') private alarmModel: Model<AlarmDocument>,
+    @InjectModel(Bell.name, 'prime_cold') 
+    private readonly bellModel: Model<BellDocument>,
   ) {}
 
-  // GET /bell
-  async fetchBellData() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Get unacknowledged alarms from today
-    const latestAlarms = await this.alarmModel.find({
-      current_time: { $gte: today },
-      acknowledged: { $ne: true }, // only unacknowledged
-    }).sort({ current_time: -1 }).limit(5);
-
-    if (!latestAlarms.length) {
-      this.logger.log('No unacknowledged alarms found for today.');
-      return { bell_status: 'blue', alarms: [] };
-    }
-
-    const bellData = latestAlarms.map((alarm) => ({
-      source: alarm.Source,
-      status: alarm.status1,
-      start_time: alarm.current_time
-        ? moment(alarm.current_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss')
-        : null,
-    }));
-
-    // Clear bell collection and insert new data
-    await this.bellModel.deleteMany({});
-    await this.bellModel.insertMany(bellData);
-
-    // Determine bell status: red if any alarm status includes 'Exceeded'
-    const bell_status = bellData.some(b => (b.status || '').includes('Exceeded')) ? 'red' : 'blue';
+  async getAllBells() {
+    const bells = await this.bellModel.find().sort({ Time: -1 }).limit(20);
 
     return {
-      bell_status,
-      alarms: bellData,
+      // bell_status: 'blue', // aap apni logic yahan daal sakte hain
+      bells: bells.map((bell) => ({
+        _id: bell._id,
+        Source: bell.Source,
+        Status: bell.Status,
+        // Time: bell.Time ? moment(bell.Time).tz('Asia/Karachi').format('YYYY-MM-DD hh:mm:ss A') : null,
+        // db_value: bell.db_value,
+        // url_value: bell.url_value,
+        // status1: bell.status1,
+        // alarm_count: bell.alarm_count,
+        current_time: bell.current_time ? moment(bell.current_time).tz('Asia/Karachi').format('YYYY-MM-DD hh:mm:ss A') : null,
+        // end_time: bell.end_time ? moment(bell.end_time).tz('Asia/Karachi').format('YYYY-MM-DD hh:mm:ss A') : null,
+      })),
     };
   }
+
+async acknowledgeAllBells() {
+  await this.bellModel.deleteMany({});  // saare documents delete kar de
+
+  return { success: true, message: 'All bells acknowledged and removed successfully' };
+}
+
+
+
+
+
+
+
 
   // POST /bell/acknowledge
-  async acknowledgeAllRecentAlarms() {
-    // Delete all bell records
-    const deleteResult = await this.bellModel.deleteMany({});
+  // async acknowledgeAllRecentAlarms() {
+  //   // 1) Bell collection saaf karo (jis se bell blank ho jaye)
+  //   await this.bellModel.deleteMany({});
 
-    // Mark today's unacknowledged alarms as acknowledged
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  //   const today = new Date();
+  //   today.setHours(0, 0, 0, 0);
 
-    const updateResult = await this.alarmModel.updateMany(
-      { current_time: { $gte: today }, acknowledged: { $ne: true } },
-      { $set: { acknowledged: true } }
-    );
+  //   // 2) Alarm collection mein aaj ke alarms ko acknowledge mark karo
+  //   const updateResult = await this.alarmModel.updateMany(
+  //     { current_time: { $gte: today }, acknowledged: { $ne: true } },
+  //     { $set: { acknowledged: true } }
+  //   );
 
-    return {
-      message: `${deleteResult.deletedCount} bell records removed. ${updateResult.modifiedCount} alarms acknowledged.`,
-    };
-  }
+  //   return {
+  //     message: `Bell cleared. ${updateResult.modifiedCount} alarms acknowledged.`,
+  //   };
+  // }
 }

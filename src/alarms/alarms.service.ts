@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import axios from 'axios';
+import * as moment from 'moment-timezone';
+
 import { Alarm, AlarmDocument } from './schemas/alarm.schema';
 import { Meter, MeterDocument } from './schemas/meter.schema';
-import * as moment from 'moment-timezone';
 import { RecentAlarm, RecentAlarmDocument } from './schemas/recent-alarm.schema';
-// import moment from "moment"; // make sure you have this
-
+import { Bell, BellDocument } from './schemas/bell.schema'; // ✅ NEW
 
 @Injectable()
 export class AlarmsService {
@@ -19,127 +19,120 @@ export class AlarmsService {
     private readonly meterModel: Model<MeterDocument>,
 
     @InjectModel(RecentAlarm.name, 'prime_cold')
-    private readonly recentAlarmModel: Model<RecentAlarmDocument>
-  ) 
-  {}
+    private readonly recentAlarmModel: Model<RecentAlarmDocument>,
 
+    @InjectModel(Bell.name, 'prime_cold') // ✅ NEW
+    private readonly bellModel: Model<BellDocument>
+  ) {}
 
+  async checkAlarms() {
+    const url = 'http://13.234.241.103:1880/prime_cold';
+    let url_data: Record<string, number>;
 
-async checkAlarms() {
-  const url = 'http://13.234.241.103:1880/prime_cold';
-  let url_data: Record<string, number>;
+    try {
+      const response = await axios.get(url);
+      url_data = response.data;
 
-  try {
-    const response = await axios.get(url);
-    url_data = response.data;
+      const units = ['U1', 'U2', 'U3', 'U4', 'U5'];
+      for (const unit of units) {
+        const v1 = Number(url_data[`${unit}_Voltage_L1L2`] || 0);
+        const v2 = Number(url_data[`${unit}_Voltage_L2L3`] || 0);
+        const v3 = Number(url_data[`${unit}_Voltage_L3L1`] || 0);
 
-    // --- Calculate Voltage_AVG for U1 to U5 ---
-    const units = ['U1', 'U2', 'U3', 'U4', 'U5'];
-    for (const unit of units) {
-      const v1 = Number(url_data[`${unit}_Voltage_L1L2`] || 0);
-      const v2 = Number(url_data[`${unit}_Voltage_L2L3`] || 0);
-      const v3 = Number(url_data[`${unit}_Voltage_L3L1`] || 0);
-
-      if (v1 > 0 && v2 > 0 && v3 > 0) {
-        url_data[`${unit}_Voltage_AVG`] = Number(((v1 + v2 + v3) / 3).toFixed(2));
-      } else {
-        url_data[`${unit}_Voltage_AVG`] = 0;
+        url_data[`${unit}_Voltage_AVG`] = (v1 > 0 && v2 > 0 && v3 > 0)
+          ? Number(((v1 + v2 + v3) / 3).toFixed(2))
+          : 0;
       }
+
+      console.log('✅ URL Data with Voltage_AVG:', url_data);
+    } catch (error) {
+      console.error('❌ Failed to fetch data from URL:', error.message);
+      return [];
     }
 
-    console.log('✅ URL Data with Voltage_AVG:', url_data);
+    const meters = await this.meterModel.find();
 
-  } catch (error) {
-    console.error('❌ Failed to fetch data from URL:', error.message);
-    return [];
-  }
+    const alarmConditions = {
+      'Low Voltage': (db: number, urlValue: number) => urlValue <= db,
+      'High Voltage': (db: number, urlValue: number) => urlValue <= db,
+      'High Current': (db: number, urlValue: number) => urlValue >= db,
+    };
 
-  const meters = await this.meterModel.find();
+    const mapping = {
+      'Solar1 Low Voltage': 'U2_Voltage_AVG',
+      'Solar1 High Voltage': 'U2_Voltage_AVG',
+      'Solar1 High Current': 'U2_Current_AVG',
+      'Wapda Low Voltage': 'U1_Voltage_AVG',
+      'Wapda High Voltage': 'U1_Voltage_AVG',
+      'Wapda High Current': 'U1_Current_AVG',
+      'Compressor1 Low Voltage': 'U3_Voltage_AVG',
+      'Compressor1 High Voltage': 'U3_Voltage_AVG',
+      'Compressor1 High Current': 'U3_Current_AVG',
+      'Compressor2 Low Voltage': 'U4_Voltage_AVG',
+      'Compressor2 High Voltage': 'U4_Voltage_AVG',
+      'Compressor2 High Current': 'U4_Current_AVG',
+      'Compressor3 Low Voltage': 'U5_Voltage_AVG',
+      'Compressor3 High Voltage': 'U5_Voltage_AVG',
+      'Compressor3 High Current': 'U5_Current_AVG',
+    };
 
-  const alarmConditions = {
-    'Low Voltage': (db: number, urlValue: number) => urlValue <= db,
-    'High Voltage': (db: number, urlValue: number) => urlValue >= db,
-    'High Current': (db: number, urlValue: number) => urlValue >= db,
-  };
+    const now = moment().tz('Asia/Karachi');
+    const todayStart = now.clone().startOf('day').toDate();
+    const todayEnd = now.clone().endOf('day').toDate();
 
-  const mapping = {
-    'Solar1 Low Voltage': 'U2_Voltage_AVG',
-    'Solar1 High Voltage': 'U2_Voltage_AVG',
-    'Solar1 High Current': 'U2_Current_AVG',
-    'Wapda Low Voltage': 'U1_Voltage_AVG',
-    'Wapda High Voltage': 'U1_Voltage_AVG',
-    'Wapda High Current': 'U1_Current_AVG',
-    'Compressor1 Low Voltage': 'U3_Voltage_AVG',
-    'Compressor1 High Voltage': 'U3_Voltage_AVG',
-    'Compressor1 High Current': 'U3_Current_AVG',
-    'Compressor2 Low Voltage': 'U4_Voltage_AVG',
-    'Compressor2 High Voltage': 'U4_Voltage_AVG',
-    'Compressor2 High Current': 'U4_Current_AVG',
-    'Compressor3 Low Voltage': 'U5_Voltage_AVG',
-    'Compressor3 High Voltage': 'U5_Voltage_AVG',
-    'Compressor3 High Current': 'U5_Current_AVG',
-  };
+    for (const meter of meters) {
+      const key = `${meter.Source} ${meter.Status}`;
+      const urlKey = mapping[key];
 
-  const now = moment().tz('Asia/Karachi');
-  const todayStart = now.clone().startOf('day').toDate();
-  const todayEnd = now.clone().endOf('day').toDate();
+      if (!urlKey || !(urlKey in url_data)) {
+        console.warn(`⚠️ No data for key: ${key} -> ${urlKey}`);
+        continue;
+      }
 
-  for (const meter of meters) {
-    const key = `${meter.Source} ${meter.Status}`;
-    const urlKey = mapping[key];
+      const urlValue = Number(url_data[urlKey]);
+      const dbValue = Number(meter.Value);
 
-    if (!urlKey || !(urlKey in url_data)) {
-      console.warn(`⚠️ No data for key: ${key} -> ${urlKey}`);
-      continue;
-    }
+      if (isNaN(urlValue) || isNaN(dbValue)) {
+        console.warn(`⚠️ Invalid numbers - url: ${urlValue}, db: ${dbValue}`);
+        continue;
+      }
 
-    const urlValue = Number(url_data[urlKey]);
-    const dbValue = Number(meter.Value);
+      if (urlValue <= 10) {
+        console.log(`🚫 Skipping alarm for ${key} because urlValue (${urlValue}) ≤ 10`);
+        continue;
+      }
 
-    if (isNaN(urlValue) || isNaN(dbValue)) {
-      console.warn(`⚠️ Skipping due to invalid number - url: ${urlValue}, db: ${dbValue}`);
-      continue;
-    }
+      const isMet = alarmConditions[meter.Status]?.(dbValue, urlValue);
 
-    if (urlValue <= 10) {
-      console.log(`🚫 Skipping alarm for ${key} because urlValue (${urlValue}) ≤ 10 (assumed meter is off)`);
-      continue;
-    }
+      const todayAlarm = await this.alarmModel.findOne({
+        Source: meter.Source,
+        Status: meter.Status,
+        Time: { $gte: todayStart, $lte: todayEnd },
+      });
 
-    const isMet = alarmConditions[meter.Status]?.(dbValue, urlValue);
+      if (isMet) {
+        if (!todayAlarm) {
+          const newAlarmData = {
+            Source: meter.Source,
+            Status: meter.Status,
+            Time: now.toDate(),
+            db_value: dbValue,
+            url_value: urlValue,
+            status1: meter.Status,
+            alarm_count: 1,
+            current_time: now.toDate(),
+            end_time: null,
+          };
 
-    console.log('======= CHECKING CONDITION ========');
-    console.log('Status:', meter.Status);
-    console.log('Source:', meter.Source);
-    console.log('urlValue:', urlValue);
-    console.log('dbValue:', dbValue);
-    console.log('Condition met?:', isMet);
+          const newAlarm = new this.alarmModel(newAlarmData);
+          await newAlarm.save();
 
-    const todayAlarm = await this.alarmModel.findOne({
-      Source: meter.Source,
-      Status: meter.Status,
-      Time: { $gte: todayStart, $lte: todayEnd },
-    });
+          const newBell = new this.bellModel(newAlarmData);
+          await newBell.save();
 
-    if (isMet) {
-      if (!todayAlarm) {
-        const newAlarm = new this.alarmModel({
-          Source: meter.Source,
-          Status: meter.Status,
-          Time: now.toDate(),
-          db_value: dbValue,
-          url_value: urlValue,
-          status1: meter.Status,
-          alarm_count: 1,
-          current_time: now.toDate(),
-          end_time: null,
-        });
-        await newAlarm.save();
-        console.log('✅ New alarm inserted');
-      } else if (todayAlarm.end_time !== null) {
-        await this.alarmModel.updateOne(
-          { _id: todayAlarm._id },
-          {
+          console.log('✅ New alarm inserted (and saved to bells)');
+        } else if (todayAlarm.end_time !== null) {
+          const updateData = {
             $set: {
               db_value: dbValue,
               url_value: urlValue,
@@ -147,48 +140,61 @@ async checkAlarms() {
               end_time: null,
             },
             $inc: { alarm_count: 1 },
-          }
-        );
-        console.log('🔁 Reactivated existing alarm');
+          };
+
+          await this.alarmModel.updateOne({ _id: todayAlarm._id }, updateData);
+          await this.bellModel.updateOne(
+            { Source: meter.Source, Status: meter.Status, Time: todayAlarm.Time },
+            updateData,
+            { upsert: true }
+          );
+
+          console.log('🔁 Reactivated existing alarm (and updated bells)');
+        } else {
+          console.log('⏸️ Alarm already active');
+        }
       } else {
-        console.log('⏸️ Alarm already active');
-      }
-    } else {
-      if (todayAlarm && todayAlarm.end_time === null) {
-        await this.alarmModel.updateOne(
-          { _id: todayAlarm._id },
-          {
+        if (todayAlarm && todayAlarm.end_time === null) {
+          const resolveData = {
             $set: {
               end_time: now.toDate(),
               db_value: dbValue,
               url_value: urlValue,
             },
-          }
-        );
-        console.log('🔕 Alarm resolved');
-      } else {
-        console.log('✅ No alarm to end');
+          };
+
+          await this.alarmModel.updateOne({ _id: todayAlarm._id }, resolveData);
+          await this.bellModel.updateOne(
+            { Source: meter.Source, Status: meter.Status, Time: todayAlarm.Time },
+            resolveData
+          );
+
+          console.log('🔕 Alarm resolved (and bells updated)');
+        } else {
+          console.log('✅ No alarm to end');
+        }
       }
     }
+
+    const alarms = await this.alarmModel.find().sort({ Time: -1 });
+
+    return alarms.map(alarm => ({
+      _id: alarm._id,
+      Source: alarm.Source,
+      status1: alarm.status1,
+      current_time: alarm.current_time
+        ? moment(alarm.current_time).tz('Asia/Karachi').format('YYYY-MM-DD hh:mm:ss A')
+        : null,
+      db_value: alarm.db_value,
+      url_value: alarm.url_value,
+      alarm_count: alarm.alarm_count,
+      end_time: alarm.end_time
+        ? moment(alarm.end_time).tz('Asia/Karachi').format('YYYY-MM-DD hh:mm:ss A')
+        : null,
+    }));
   }
 
-  const alarms = await this.alarmModel.find().sort({ Time: -1 });
 
-  return alarms.map(alarm => ({
-    _id: alarm._id,
-    Source: alarm.Source,
-    status1: alarm.status1,
-    current_time: alarm.current_time
-      ? moment(alarm.current_time).tz('Asia/Karachi').format('YYYY-MM-DD hh:mm:ss A')
-      : null,
-    db_value: alarm.db_value,
-    url_value: alarm.url_value,
-    alarm_count: alarm.alarm_count,
-    end_time: alarm.end_time
-      ? moment(alarm.end_time).tz('Asia/Karachi').format('YYYY-MM-DD hh:mm:ss A')
-      : null,
-  }));
-}
 
 
 

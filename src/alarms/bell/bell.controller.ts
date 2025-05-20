@@ -6,12 +6,12 @@ export class BellController {
   constructor(private readonly bellService: BellService) {}
 
   @Get()
-  async fetchBellData() {
-    return this.bellService.fetchBellData();
+  async getAllBells() {
+    return this.bellService.getAllBells();
   }
 
   @Post('acknowledge')
   async acknowledgeAll() {
-    return this.bellService.acknowledgeAllRecentAlarms();
+    return this.bellService.acknowledgeAllBells();
   }
 }

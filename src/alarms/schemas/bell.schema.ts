@@ -1,7 +1,9 @@
+// schemas/bell.schema.ts
+
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-@Schema()
+@Schema({ collection: 'bells' })
 export class Bell {
   @Prop()
   Source: string;
@@ -27,8 +29,8 @@ export class Bell {
   @Prop()
   current_time: Date;
 
-   @Prop({ type: Date, required: false })  // <-- Explicit type + optional
-  end_time?: Date | null;
+  @Prop()
+  end_time: Date;
 }
 
 export type BellDocument = Bell & Document;

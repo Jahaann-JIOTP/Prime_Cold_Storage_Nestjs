@@ -5,6 +5,7 @@ import { AlarmsService } from './alarms.service';
 import { Alarm, AlarmSchema } from './schemas/alarm.schema';
 import { Meter, MeterSchema } from './schemas/meter.schema';
 import { RecentAlarm, RecentAlarmSchema } from './schemas/recent-alarm.schema';
+import {Bell, BellSchema } from './schemas/bell.schema';
 
 @Module({
   imports: [
@@ -20,6 +21,12 @@ import { RecentAlarm, RecentAlarmSchema } from './schemas/recent-alarm.schema';
       [{ name: RecentAlarm.name, schema: RecentAlarmSchema }],
       'prime_cold',
     ),
+
+    MongooseModule.forFeature(
+  [{ name: Bell.name, schema: BellSchema },
+  ],
+  'prime_cold'
+),
   ],
   controllers: [AlarmsController],
   providers: [AlarmsService],
