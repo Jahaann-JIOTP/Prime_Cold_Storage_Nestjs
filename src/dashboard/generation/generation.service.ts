@@ -20,11 +20,11 @@ export class GenerationService {
     switch (query.value) {
       case 'today':
         return this.getTodayGeneration();
-      case 'weekly':
+      case 'week':
         return this.getWeeklyGeneration();
-      case 'monthly':
+      case 'month':
         return this.getMonthlyGeneration();
-      case 'yearly':
+      case 'year':
         return this.getYearlyGeneration();
       default:
         return { error: 'Invalid value' };

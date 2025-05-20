@@ -40,87 +40,129 @@ export class SolarService {
     }
   }
 
-  async getTodayData() {
-    const collection = await this.getCollection();
+ async getTodayData() {
+  const collection = await this.getCollection();
 
-    const now = new Date();
-    const todayStart = new Date(now.setHours(0, 0, 0, 0));
-    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setDate(todayStart.getDate() - 1);
+  // Define timezone offset in milliseconds (+5 hours)
+  const TIMEZONE_OFFSET_MS = 5 * 60 * 60 * 1000;
 
-    const matchStage = {
-      timestamp: {
-        $gte: yesterdayStart.toISOString(),
-        $lte: todayEnd.toISOString(),
-      },
-    };
+  // Current time in UTC
+  const now = new Date();
 
-    const projection: any = { timestamp: 1 };
-    this.solarKeys.forEach((key) => (projection[key] = 1));
+  // Calculate local "today" start and end by applying offset
+  const localTodayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+  localTodayStart.setTime(localTodayStart.getTime() - TIMEZONE_OFFSET_MS);
 
-    const data = await collection
-      .aggregate([
-        { $match: matchStage },
-        { $project: projection },
-        { $sort: { timestamp: 1 } },
-      ])
-      .toArray();
+  const localTodayEnd = new Date(localTodayStart);
+  localTodayEnd.setTime(localTodayEnd.getTime() + 24 * 60 * 60 * 1000 - 1); // 23:59:59.999 local time
 
-    const firstValues: any = {};
-    const lastValues: any = {};
+  // Yesterday start is 1 day before localTodayStart
+  const localYesterdayStart = new Date(localTodayStart);
+  localYesterdayStart.setTime(localYesterdayStart.getTime() - 24 * 60 * 60 * 1000);
 
-    for (const doc of data) {
-      const date = new Date(doc.timestamp);
-      const hour = date.getHours().toString().padStart(2, '0') + ':00';
-      const type = date.toDateString() === new Date().toDateString() ? 'Today' : 'Yesterday';
+  // Match data from yesterdayStart to todayEnd in UTC timestamps (no offset)
+  const matchStage = {
+    timestamp: {
+      $gte: localYesterdayStart.toISOString(),
+      $lte: localTodayEnd.toISOString(),
+    },
+  };
 
-      for (const key of this.solarKeys) {
-        if (doc[key] != null) {
-          firstValues[hour] ??= {};
-          lastValues[hour] ??= {};
-          firstValues[hour][type] ??= {};
-          lastValues[hour][type] ??= {};
+  // Prepare projection with solar keys + timestamp
+  const projection: any = { timestamp: 1 };
+  this.solarKeys.forEach((key) => (projection[key] = 1));
 
-          if (firstValues[hour][type][key] == null) {
-            firstValues[hour][type][key] = doc[key];
-          }
-          lastValues[hour][type][key] = doc[key];
-        }
-      }
+  // Fetch data with aggregation pipeline
+  const data = await collection
+    .aggregate([
+      { $match: matchStage },
+      { $project: projection },
+      { $sort: { timestamp: 1 } },
+    ])
+    .toArray();
+
+  // Precompute local ISO dates for today and yesterday for comparison (using offset)
+  const formatLocalDateISO = (date: Date) => {
+    // Convert UTC timestamp to local +5 timezone string YYYY-MM-DD
+    const localDate = new Date(date.getTime() + TIMEZONE_OFFSET_MS);
+    return localDate.toISOString().slice(0, 10);
+  };
+
+  const todayISO = formatLocalDateISO(localTodayStart);
+  const yesterdayISO = formatLocalDateISO(localYesterdayStart);
+
+  const firstValues: any = {};
+  const lastValues: any = {};
+
+  for (const doc of data) {
+    // Convert UTC timestamp string to Date object
+    const utcDate = new Date(doc.timestamp);
+
+    // Convert UTC date to local date by adding offset
+    const localDate = new Date(utcDate.getTime() + TIMEZONE_OFFSET_MS);
+
+    // Extract local hour and pad it
+    const hour = localDate.getHours().toString().padStart(2, '0') + ':00';
+
+    // Extract local date ISO string YYYY-MM-DD
+    const docDateISO = localDate.toISOString().slice(0, 10);
+
+    let type = '';
+    if (docDateISO === todayISO) {
+      type = 'Today';
+    } else if (docDateISO === yesterdayISO) {
+      type = 'Yesterday';
+    } else {
+      continue;
     }
 
-    const hourly: any[] = [];
-    for (let h = 0; h < 24; h++) {
-      const hourStr = h.toString().padStart(2, '0') + ':00';
-      let todayTotal = 0;
-      let yesterdayTotal = 0;
+    for (const key of this.solarKeys) {
+      if (doc[key] != null) {
+        firstValues[hour] ??= {};
+        lastValues[hour] ??= {};
+        firstValues[hour][type] ??= {};
+        lastValues[hour][type] ??= {};
 
-      for (const key of this.solarKeys) {
-        if (
-          firstValues?.[hourStr]?.['Today']?.[key] != null &&
-          lastValues?.[hourStr]?.['Today']?.[key] != null
-        ) {
-          todayTotal += lastValues[hourStr]['Today'][key] - firstValues[hourStr]['Today'][key];
+        if (firstValues[hour][type][key] == null) {
+          firstValues[hour][type][key] = doc[key];
         }
-
-        if (
-          firstValues?.[hourStr]?.['Yesterday']?.[key] != null &&
-          lastValues?.[hourStr]?.['Yesterday']?.[key] != null
-        ) {
-          yesterdayTotal += lastValues[hourStr]['Yesterday'][key] - firstValues[hourStr]['Yesterday'][key];
-        }
+        lastValues[hour][type][key] = doc[key];
       }
-
-      hourly.push({
-        Time: hourStr,
-        Today: +todayTotal.toFixed(2),
-        Yesterday: +yesterdayTotal.toFixed(2),
-      });
     }
-
-    return hourly;
   }
+
+  // Prepare final hourly array
+  const hourly: any[] = [];
+  for (let h = 0; h < 24; h++) {
+    const hourStr = h.toString().padStart(2, '0') + ':00';
+    let todayTotal = 0;
+    let yesterdayTotal = 0;
+
+    for (const key of this.solarKeys) {
+      if (
+        firstValues?.[hourStr]?.['Today']?.[key] != null &&
+        lastValues?.[hourStr]?.['Today']?.[key] != null
+      ) {
+        todayTotal += lastValues[hourStr]['Today'][key] - firstValues[hourStr]['Today'][key];
+      }
+      if (
+        firstValues?.[hourStr]?.['Yesterday']?.[key] != null &&
+        lastValues?.[hourStr]?.['Yesterday']?.[key] != null
+      ) {
+        yesterdayTotal += lastValues[hourStr]['Yesterday'][key] - firstValues[hourStr]['Yesterday'][key];
+      }
+    }
+
+    hourly.push({
+      Time: hourStr,
+      Today: +todayTotal.toFixed(2),
+      Yesterday: +yesterdayTotal.toFixed(2),
+    });
+  }
+
+  return hourly;
+}
+
 
   async getWeekData() {
     const collection = await this.getCollection();

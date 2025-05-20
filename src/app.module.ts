@@ -45,9 +45,9 @@ import { PrimeColdHrsModule } from './prime-cold-hrs/prime-cold-hrs.module';
 
     // ✅ Primary DB (iotdb)
     MongooseModule.forRoot(process.env.IOTDB_URI!),
-    MongooseModule.forRoot(process.env.ALARMDB_URI!, {
-      connectionName: 'Prime_Cold_Alarms',
-    }),
+    // MongooseModule.forRoot(process.env.ALARMDB_URI!, {
+    //   connectionName: 'Prime_Cold_Alarms',
+    // }),
     MongooseModule.forRoot(process.env.PRIMECOLD_URI!, {
       connectionName: 'prime_cold',
     }),
