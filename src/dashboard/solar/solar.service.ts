@@ -43,36 +43,29 @@ export class SolarService {
  async getTodayData() {
   const collection = await this.getCollection();
 
-  // Define timezone offset in milliseconds (+5 hours)
-  const TIMEZONE_OFFSET_MS = 5 * 60 * 60 * 1000;
-
-  // Current time in UTC
   const now = new Date();
 
-  // Calculate local "today" start and end by applying offset
-  const localTodayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-  localTodayStart.setTime(localTodayStart.getTime() - TIMEZONE_OFFSET_MS);
+  // UTC start of today
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  // UTC end of today
+  const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+  // UTC start of yesterday
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
 
-  const localTodayEnd = new Date(localTodayStart);
-  localTodayEnd.setTime(localTodayEnd.getTime() + 24 * 60 * 60 * 1000 - 1); // 23:59:59.999 local time
-
-  // Yesterday start is 1 day before localTodayStart
-  const localYesterdayStart = new Date(localTodayStart);
-  localYesterdayStart.setTime(localYesterdayStart.getTime() - 24 * 60 * 60 * 1000);
-
-  // Match data from yesterdayStart to todayEnd in UTC timestamps (no offset)
+  // Match between yesterday start and today end
   const matchStage = {
     timestamp: {
-      $gte: localYesterdayStart.toISOString(),
-      $lte: localTodayEnd.toISOString(),
+      $gte: yesterdayStart.toISOString(),
+      $lte: todayEnd.toISOString(),
     },
   };
 
-  // Prepare projection with solar keys + timestamp
+  // Projection including timestamp and solar keys
   const projection: any = { timestamp: 1 };
   this.solarKeys.forEach((key) => (projection[key] = 1));
 
-  // Fetch data with aggregation pipeline
+  // Fetch data from DB sorted by timestamp ascending
   const data = await collection
     .aggregate([
       { $match: matchStage },
@@ -81,75 +74,116 @@ export class SolarService {
     ])
     .toArray();
 
-  // Precompute local ISO dates for today and yesterday for comparison (using offset)
-  const formatLocalDateISO = (date: Date) => {
-    // Convert UTC timestamp to local +5 timezone string YYYY-MM-DD
-    const localDate = new Date(date.getTime() + TIMEZONE_OFFSET_MS);
-    return localDate.toISOString().slice(0, 10);
-  };
+  // Convert data timestamps to Date objects once for efficiency
+  data.forEach((doc) => (doc._date = new Date(doc.timestamp)));
 
-  const todayISO = formatLocalDateISO(localTodayStart);
-  const yesterdayISO = formatLocalDateISO(localYesterdayStart);
+  // Prepare hour boundaries for Yesterday and Today in UTC
+  // We need 25 points for each day (0:00 to 24:00) to calculate 24 intervals
+ function getHourBoundaries(startDate: Date): Date[] {
+  const boundaries: Date[] = [];
+  for (let h = 0; h <= 24; h++) {
+    boundaries.push(new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), h, 0, 0, 0)));
+  }
+  return boundaries;
+}
 
-  const firstValues: any = {};
-  const lastValues: any = {};
+  const yesterdayHours = getHourBoundaries(yesterdayStart);
+  const todayHours = getHourBoundaries(todayStart);
 
-  for (const doc of data) {
-    // Convert UTC timestamp string to Date object
-    const utcDate = new Date(doc.timestamp);
+  // Helper: interpolate value at a given timestamp for a key between two docs
+  function interpolateValue(time: number, beforeDoc: any, afterDoc: any, key: string) {
+    if (!beforeDoc) return afterDoc[key];
+    if (!afterDoc) return beforeDoc[key];
 
-    // Convert UTC date to local date by adding offset
-    const localDate = new Date(utcDate.getTime() + TIMEZONE_OFFSET_MS);
+    const t0 = beforeDoc._date.getTime();
+    const t1 = afterDoc._date.getTime();
+    const v0 = beforeDoc[key];
+    const v1 = afterDoc[key];
 
-    // Extract local hour and pad it
-    const hour = localDate.getHours().toString().padStart(2, '0') + ':00';
+    if (t1 === t0) return v0; // avoid division by zero
 
-    // Extract local date ISO string YYYY-MM-DD
-    const docDateISO = localDate.toISOString().slice(0, 10);
-
-    let type = '';
-    if (docDateISO === todayISO) {
-      type = 'Today';
-    } else if (docDateISO === yesterdayISO) {
-      type = 'Yesterday';
-    } else {
-      continue;
-    }
-
-    for (const key of this.solarKeys) {
-      if (doc[key] != null) {
-        firstValues[hour] ??= {};
-        lastValues[hour] ??= {};
-        firstValues[hour][type] ??= {};
-        lastValues[hour][type] ??= {};
-
-        if (firstValues[hour][type][key] == null) {
-          firstValues[hour][type][key] = doc[key];
-        }
-        lastValues[hour][type][key] = doc[key];
-      }
-    }
+    // Linear interpolation formula
+    return v0 + ((v1 - v0) * (time - t0)) / (t1 - t0);
   }
 
-  // Prepare final hourly array
+  // For fast lookup, build an index by day ('Today' or 'Yesterday')
+  function filterDataByDay(dayISO: string) {
+    return data.filter((doc) => doc._date.toISOString().slice(0, 10) === dayISO);
+  }
+
+  const todayISO = todayStart.toISOString().slice(0, 10);
+  const yesterdayISO = yesterdayStart.toISOString().slice(0, 10);
+
+  const dataByDay = {
+    Today: filterDataByDay(todayISO),
+    Yesterday: filterDataByDay(yesterdayISO),
+  };
+
+  // Helper: for a given array of docs sorted by time, find docs immediately before and after targetTime
+  function findBoundingDocs(docs: any[], targetTime: number) {
+    if (docs.length === 0) return { before: null, after: null };
+
+    let before = null;
+    let after = null;
+
+    // Binary search for efficiency
+    let low = 0,
+      high = docs.length - 1;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const midTime = docs[mid]._date.getTime();
+
+      if (midTime === targetTime) {
+        before = docs[mid];
+        after = docs[mid];
+        break;
+      } else if (midTime < targetTime) {
+        before = docs[mid];
+        low = mid + 1;
+      } else {
+        after = docs[mid];
+        high = mid - 1;
+      }
+    }
+    return { before, after };
+  }
+
+  // Calculate hourly data
   const hourly: any[] = [];
+
   for (let h = 0; h < 24; h++) {
     const hourStr = h.toString().padStart(2, '0') + ':00';
+
     let todayTotal = 0;
     let yesterdayTotal = 0;
 
     for (const key of this.solarKeys) {
-      if (
-        firstValues?.[hourStr]?.['Today']?.[key] != null &&
-        lastValues?.[hourStr]?.['Today']?.[key] != null
-      ) {
-        todayTotal += lastValues[hourStr]['Today'][key] - firstValues[hourStr]['Today'][key];
+      // For Yesterday: delta = value at hour h+1 - value at hour h
+      const yesterdayStartTime = yesterdayHours[h].getTime();
+      const yesterdayEndTime = yesterdayHours[h + 1].getTime();
+
+      const { before: yBeforeStart, after: yAfterStart } = findBoundingDocs(dataByDay.Yesterday, yesterdayStartTime);
+      const { before: yBeforeEnd, after: yAfterEnd } = findBoundingDocs(dataByDay.Yesterday, yesterdayEndTime);
+
+      const valStartYesterday = interpolateValue(yesterdayStartTime, yBeforeStart, yAfterStart, key);
+      const valEndYesterday = interpolateValue(yesterdayEndTime, yBeforeEnd, yAfterEnd, key);
+
+      if (valStartYesterday != null && valEndYesterday != null) {
+        yesterdayTotal += valEndYesterday - valStartYesterday;
       }
-      if (
-        firstValues?.[hourStr]?.['Yesterday']?.[key] != null &&
-        lastValues?.[hourStr]?.['Yesterday']?.[key] != null
-      ) {
-        yesterdayTotal += lastValues[hourStr]['Yesterday'][key] - firstValues[hourStr]['Yesterday'][key];
+
+      // For Today: delta = value at hour h+1 - value at hour h
+      const todayStartTime = todayHours[h].getTime();
+      const todayEndTime = todayHours[h + 1].getTime();
+
+      const { before: tBeforeStart, after: tAfterStart } = findBoundingDocs(dataByDay.Today, todayStartTime);
+      const { before: tBeforeEnd, after: tAfterEnd } = findBoundingDocs(dataByDay.Today, todayEndTime);
+
+      const valStartToday = interpolateValue(todayStartTime, tBeforeStart, tAfterStart, key);
+      const valEndToday = interpolateValue(todayEndTime, tBeforeEnd, tAfterEnd, key);
+
+      if (valStartToday != null && valEndToday != null) {
+        todayTotal += valEndToday - valStartToday;
       }
     }
 
@@ -162,6 +196,7 @@ export class SolarService {
 
   return hourly;
 }
+
 
 
   async getWeekData() {

@@ -32,107 +32,134 @@ export class GenerationService {
   }
 
   private async calculateConsumption(range: { start: string; end: string }) {
-    const meterIds = [
-      "U1", "U2",
-    ];
-    const suffix = "Active_Energy_Total_Consumed";
-  
-    const solarKeys = ["U1"];
-    const transformerKeys = ["U2"];
-   
-  
-    const projection: any = { timestamp: 1 };
-    meterIds.forEach(id => projection[`${id}_${suffix}`] = 1);
-  
-    const data = await this.generationModel.aggregate([
-      { $match: { timestamp: { $gte: range.start, $lte: range.end } } },
-      { $project: projection },
-      { $sort: { timestamp: 1 } }
-    ]);
-  
-    const firstValues: Record<string, number> = {};
-    const lastValues: Record<string, number> = {};
-  
-    for (const doc of data) {
-      for (const id of meterIds) {
-        const key = `${id}_${suffix}`;
-        if (doc[key] !== undefined && typeof doc[key] === 'number') {
-          if (!(key in firstValues)) {
-            firstValues[key] = doc[key];
-          }
-          lastValues[key] = doc[key];
+  const meterIds = ["U1", "U2"];
+  const suffix = "Active_Energy_Total_Consumed";
+
+  const solarKeys = ["U2"]; // Make sure these are correct for your case
+  const transformerKeys = ["U1"];
+
+  // Project only required fields
+  const projection: any = { timestamp: 1 };
+  meterIds.forEach(id => {
+    projection[`${id}_${suffix}`] = 1;
+  });
+
+  // Query data sorted by timestamp ascending
+  const data = await this.generationModel.aggregate([
+    { $match: { timestamp: { $gte: range.start, $lte: range.end } } },
+    { $project: projection },
+    { $sort: { timestamp: 1 } },
+  ]);
+
+  // Object to hold first and last values per meter key
+  const firstValues: Record<string, number | null> = {};
+  const lastValues: Record<string, number | null> = {};
+
+  meterIds.forEach(id => {
+    const key = `${id}_${suffix}`;
+    firstValues[key] = null;
+    lastValues[key] = null;
+  });
+
+  for (const doc of data) {
+    meterIds.forEach(id => {
+      const key = `${id}_${suffix}`;
+      const val = doc[key];
+
+      if (typeof val === "number") {
+        // If first value not set, set it
+        if (firstValues[key] === null) {
+          firstValues[key] = val;
         }
+        // Update last value every time we see a new one (since data is sorted ascending)
+        lastValues[key] = val;
       }
-    }
-  
-    let solars = 0;
-    let transformers = 0;
-    let gensets = 0;
-  
-    for (const key in firstValues) {
-      if (lastValues[key] !== undefined) {
-        const delta = lastValues[key] - firstValues[key];
-        const id = key.replace(`_${suffix}`, '');
-  
-        if (solarKeys.includes(id)) {
-          solars += delta;
-        } else if (transformerKeys.includes(id)) {
-          transformers += delta;
-        } 
-      }
-    }
-  
-    const total = solars + transformers + gensets;
-    return +total.toFixed(2);
+    });
   }
+
+  // Calculate delta for each meter and sum separately for solar and transformer
+  let solarTotal = 0;
+  let transformerTotal = 0;
+
+  meterIds.forEach(id => {
+    const key = `${id}_${suffix}`;
+    const first = firstValues[key];
+    const last = lastValues[key];
+
+    if (first !== null && last !== null) {
+      const delta = last - first;
+      if (solarKeys.includes(id)) {
+        solarTotal += delta;
+      } else if (transformerKeys.includes(id)) {
+        transformerTotal += delta;
+      }
+    }
+  });
+
+  const total = solarTotal + transformerTotal;
+  return +total.toFixed(2);
+}
+
   
   
 
-  async getWeeklyGeneration() {
-    const result: { day: string; thisWeek: number; lastWeek: number }[] = [];
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  
-    const now = new Date();
-    const currentDay = now.getDay() === 0 ? 7 : now.getDay(); // Sunday = 7
-    const mondayThisWeek = new Date(now);
-    mondayThisWeek.setDate(now.getDate() - (currentDay - 1));
-    mondayThisWeek.setHours(0, 0, 0, 0);
-  
-    for (let i = 0; i < 7; i++) {
-      const thisWeekStart = new Date(mondayThisWeek.getTime());
-      thisWeekStart.setDate(thisWeekStart.getDate() + i);
-      thisWeekStart.setHours(0, 0, 0, 0);
-  
-      const thisWeekEnd = new Date(thisWeekStart.getTime());
-      thisWeekEnd.setHours(23, 59, 59, 999);
-  
-      const lastWeekStart = new Date(thisWeekStart.getTime());
-      lastWeekStart.setDate(thisWeekStart.getDate() - 7);
-      lastWeekStart.setHours(0, 0, 0, 0);
-  
-      const lastWeekEnd = new Date(lastWeekStart.getTime());
-      lastWeekEnd.setHours(23, 59, 59, 999);
-  
-      const thisWeek = await this.calculateConsumption({
-        start: thisWeekStart.toISOString(),
-        end: thisWeekEnd.toISOString(),
-      });
-  
-      const lastWeek = await this.calculateConsumption({
-        start: lastWeekStart.toISOString(),
-        end: lastWeekEnd.toISOString(),
-      });
-  
-      result.push({
-        day: days[i],
-        thisWeek,
-        lastWeek,
-      });
-    }
-  
-    console.log("📊 Weekly Result:", result);
-    return result;
+async getWeeklyGeneration() {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const result: { day: string; thisWeek: number; lastWeek: number }[] = [];
+
+  const now = new Date();
+
+  // Get current ISO day number (1=Monday, 7=Sunday)
+  const isoDay = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
+
+  // Calculate Monday date of this week
+  const mondayThisWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  mondayThisWeek.setUTCDate(mondayThisWeek.getUTCDate() - (isoDay - 1)); // move back to Monday
+  mondayThisWeek.setUTCHours(0, 0, 0, 0);
+
+  for (let i = 0; i < 7; i++) {
+    // This week's day start and end
+    const thisDayStart = new Date(mondayThisWeek);
+    thisDayStart.setUTCDate(mondayThisWeek.getUTCDate() + i);
+    thisDayStart.setUTCHours(0, 0, 0, 0);
+
+    const thisDayEnd = new Date(thisDayStart);
+    thisDayEnd.setUTCHours(23, 59, 59, 999);
+
+    // Last week's day start and end
+    const lastWeekStart = new Date(thisDayStart);
+    lastWeekStart.setUTCDate(thisDayStart.getUTCDate() - 7);
+    lastWeekStart.setUTCHours(0, 0, 0, 0);
+
+    const lastWeekEnd = new Date(lastWeekStart);
+    lastWeekEnd.setUTCHours(23, 59, 59, 999);
+
+    // Calculate consumption for this week and last week
+    const thisWeekConsumption = await this.calculateConsumption({
+      start: thisDayStart.toISOString(),
+      end: thisDayEnd.toISOString(),
+    });
+
+    const lastWeekConsumption = await this.calculateConsumption({
+      start: lastWeekStart.toISOString(),
+      end: lastWeekEnd.toISOString(),
+    });
+
+    result.push({
+      day: days[i],
+      thisWeek: +thisWeekConsumption.toFixed(2),
+      lastWeek: +lastWeekConsumption.toFixed(2),
+    });
   }
+
+  return result;
+}
+
+
+
+
+
+
 
   
   async getTodayGeneration() {

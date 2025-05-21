@@ -40,87 +40,94 @@ export class TransformerService {
     }
   }
 
-  async getTodayData() {
-    const collection = await this.getCollection();
+async getTodayData() {
+  const collection = await this.getCollection();
 
-    const now = new Date();
-    const todayStart = new Date(now.setHours(0, 0, 0, 0));
-    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setDate(todayStart.getDate() - 1);
+  const now = new Date();
 
-    const matchStage = {
-      timestamp: {
-        $gte: yesterdayStart.toISOString(),
-        $lte: todayEnd.toISOString(),
-      },
-    };
+  // Define UTC boundaries
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+  const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
-    const projection: any = { timestamp: 1 };
-    this.transformerKeys.forEach((key) => (projection[key] = 1));
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setUTCDate(todayStart.getUTCDate() - 1);
+  const yesterdayEnd = new Date(todayStart);
+  yesterdayEnd.setUTCMilliseconds(-1); // 1ms before todayStart
 
-    const data = await collection
-      .aggregate([
-        { $match: matchStage },
-        { $project: projection },
-        { $sort: { timestamp: 1 } },
-      ])
-      .toArray();
-
-    const firstValues: any = {};
-    const lastValues: any = {};
-
-    for (const doc of data) {
-      const date = new Date(doc.timestamp);
-      const hour = date.getHours().toString().padStart(2, '0') + ':00';
-      const type = date.toDateString() === new Date().toDateString() ? 'Today' : 'Yesterday';
-
-      for (const key of this.transformerKeys) {
-        if (doc[key] != null) {
-          firstValues[hour] ??= {};
-          lastValues[hour] ??= {};
-          firstValues[hour][type] ??= {};
-          lastValues[hour][type] ??= {};
-
-          if (firstValues[hour][type][key] == null) {
-            firstValues[hour][type][key] = doc[key];
-          }
-          lastValues[hour][type][key] = doc[key];
-        }
-      }
+  // Build hourly buckets in UTC
+  const generateHourBoundaries = (startDate: Date) => {
+    const hours: Date[] = [];
+    for (let h = 0; h <= 24; h++) {
+      hours.push(new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), h, 0, 0, 0)));
     }
+    return hours;
+  };
 
-    const hourly: any[] = [];
-    for (let h = 0; h < 24; h++) {
-      const hourStr = h.toString().padStart(2, '0') + ':00';
-      let todayTotal = 0;
-      let yesterdayTotal = 0;
+  const todayHours = generateHourBoundaries(todayStart);
+  const yesterdayHours = generateHourBoundaries(yesterdayStart);
 
-      for (const key of this.transformerKeys) {
-        if (
-          firstValues?.[hourStr]?.['Today']?.[key] != null &&
-          lastValues?.[hourStr]?.['Today']?.[key] != null
-        ) {
-          todayTotal += lastValues[hourStr]['Today'][key] - firstValues[hourStr]['Today'][key];
-        }
+  const matchStage = {
+    timestamp: {
+      $gte: yesterdayStart.toISOString(),
+      $lte: todayEnd.toISOString(),
+    },
+  };
 
-        if (
-          firstValues?.[hourStr]?.['Yesterday']?.[key] != null &&
-          lastValues?.[hourStr]?.['Yesterday']?.[key] != null
-        ) {
-          yesterdayTotal += lastValues[hourStr]['Yesterday'][key] - firstValues[hourStr]['Yesterday'][key];
-        }
-      }
+  const projection: any = { timestamp: 1 };
+  this.transformerKeys.forEach((key) => (projection[key] = 1));
 
-      hourly.push({
-        Time: hourStr,
-        Today: +todayTotal.toFixed(2),
-        Yesterday: +yesterdayTotal.toFixed(2),
+  // Fetch relevant data
+  const data = await collection
+    .aggregate([
+      { $match: matchStage },
+      { $project: projection },
+      { $sort: { timestamp: 1 } },
+    ])
+    .toArray();
+
+  const hourly: any[] = [];
+
+  for (let h = 0; h < 24; h++) {
+    const hourStr = h.toString().padStart(2, '0') + ':00';
+
+    let todayTotal = 0;
+    let yesterdayTotal = 0;
+
+    for (const key of this.transformerKeys) {
+      // Filter docs for each hour range
+      const yDocs = data.filter((doc) => {
+        const t = new Date(doc.timestamp).getTime();
+        return t >= yesterdayHours[h].getTime() && t < yesterdayHours[h + 1].getTime() && doc[key] != null;
       });
+
+      const tDocs = data.filter((doc) => {
+        const t = new Date(doc.timestamp).getTime();
+        return t >= todayHours[h].getTime() && t < todayHours[h + 1].getTime() && doc[key] != null;
+      });
+
+      // Calculate delta (last - first) if we have enough data
+      if (yDocs.length >= 2) {
+        const deltaY = yDocs[yDocs.length - 1][key] - yDocs[0][key];
+        yesterdayTotal += deltaY;
+      }
+
+      if (tDocs.length >= 2) {
+        const deltaT = tDocs[tDocs.length - 1][key] - tDocs[0][key];
+        todayTotal += deltaT;
+      }
     }
 
-    return hourly;
+    hourly.push({
+      Time: hourStr,
+      Today: +todayTotal.toFixed(2),
+      Yesterday: +yesterdayTotal.toFixed(2),
+    });
   }
+
+  return hourly;
+}
+
+
 
   async getWeekData() {
     const collection = await this.getCollection();
