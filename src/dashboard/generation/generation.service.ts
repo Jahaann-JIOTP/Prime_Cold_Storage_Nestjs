@@ -105,7 +105,7 @@ export class GenerationService {
 
 async getWeeklyGeneration() {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const result: { day: string; [key: string]: number | string }[] = [];
+  const result: { Day: string; [key: string]: number | string }[] = [];
 
   const now = new Date();
 
@@ -141,7 +141,7 @@ async getWeeklyGeneration() {
     });
 
     result.push({
-      day: days[i],
+      Day: days[i],
       "This Week": +thisWeekConsumption.toFixed(2),
       "Last Week": +lastWeekConsumption.toFixed(2),
     });
@@ -325,13 +325,13 @@ async getWeeklyGeneration() {
   
 
   async getYearlyGeneration(): Promise<
-  { month: string; [key: string]: number | string }[]
+  { Month: string; [key: string]: number | string }[]
 > {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const currentYear = new Date().getFullYear();
   const previousYear = currentYear - 1;
 
-  const result: { month: string; [key: string]: number | string }[] = [];
+  const result: { Month: string; [key: string]: number | string }[] = [];
 
   for (let month = 0; month < 12; month++) {
     const currentYearRange = this.getMonthDateRange(currentYear, month);
@@ -341,7 +341,7 @@ async getWeeklyGeneration() {
     const previousYearConsumption = Number(await this.calculateConsumption(previousYearRange)) || 0;
 
     result.push({
-      month: months[month],
+      Month: months[month],
       "Current Year": +currentYearConsumption.toFixed(2),
       "Previous Year": +previousYearConsumption.toFixed(2),
     });
