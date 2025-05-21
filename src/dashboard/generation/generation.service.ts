@@ -105,20 +105,17 @@ export class GenerationService {
 
 async getWeeklyGeneration() {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const result: { day: string; thisWeek: number; lastWeek: number }[] = [];
+  const result: { day: string; [key: string]: number | string }[] = [];
 
   const now = new Date();
 
-  // Get current ISO day number (1=Monday, 7=Sunday)
   const isoDay = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
 
-  // Calculate Monday date of this week
   const mondayThisWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  mondayThisWeek.setUTCDate(mondayThisWeek.getUTCDate() - (isoDay - 1)); // move back to Monday
+  mondayThisWeek.setUTCDate(mondayThisWeek.getUTCDate() - (isoDay - 1));
   mondayThisWeek.setUTCHours(0, 0, 0, 0);
 
   for (let i = 0; i < 7; i++) {
-    // This week's day start and end
     const thisDayStart = new Date(mondayThisWeek);
     thisDayStart.setUTCDate(mondayThisWeek.getUTCDate() + i);
     thisDayStart.setUTCHours(0, 0, 0, 0);
@@ -126,7 +123,6 @@ async getWeeklyGeneration() {
     const thisDayEnd = new Date(thisDayStart);
     thisDayEnd.setUTCHours(23, 59, 59, 999);
 
-    // Last week's day start and end
     const lastWeekStart = new Date(thisDayStart);
     lastWeekStart.setUTCDate(thisDayStart.getUTCDate() - 7);
     lastWeekStart.setUTCHours(0, 0, 0, 0);
@@ -134,7 +130,6 @@ async getWeeklyGeneration() {
     const lastWeekEnd = new Date(lastWeekStart);
     lastWeekEnd.setUTCHours(23, 59, 59, 999);
 
-    // Calculate consumption for this week and last week
     const thisWeekConsumption = await this.calculateConsumption({
       start: thisDayStart.toISOString(),
       end: thisDayEnd.toISOString(),
@@ -147,13 +142,14 @@ async getWeeklyGeneration() {
 
     result.push({
       day: days[i],
-      thisWeek: +thisWeekConsumption.toFixed(2),
-      lastWeek: +lastWeekConsumption.toFixed(2),
+      "This Week": +thisWeekConsumption.toFixed(2),
+      "Last Week": +lastWeekConsumption.toFixed(2),
     });
   }
 
   return result;
 }
+
 
 
 
@@ -260,62 +256,63 @@ async getWeeklyGeneration() {
   
 
   async getMonthlyGeneration() {
-    const weekLabels = ["Week1", "Week2", "Week3", "Week4"];
-    const result: { Weeks: string; thisMonth: number; lastMonth: number }[] = [];
-  
-    const getWeekRanges = (month: number, year: number) => {
-      const weeks: [string, string][] = [];
-      const startDate = new Date(year, month - 1, 1); // first day of month
-      const firstMonday = new Date(startDate);
-      while (firstMonday.getDay() !== 1) {
-        firstMonday.setDate(firstMonday.getDate() + 1);
-      }
-  
-      for (let i = 0; i < 4; i++) {
-        const weekStart = new Date(firstMonday);
-        weekStart.setDate(firstMonday.getDate() + i * 7);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-  
-        weeks.push([
-          new Date(weekStart.setHours(0, 0, 0, 0)).toISOString(),
-          new Date(weekEnd.setHours(23, 59, 59, 999)).toISOString(),
-        ]);
-      }
-  
-      return weeks;
-    };
-  
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-    const lastMonthDate = new Date(now.setMonth(now.getMonth() - 1));
-    const lastMonth = lastMonthDate.getMonth() + 1;
-    const lastYear = lastMonthDate.getFullYear();
-  
-    const weeksThisMonth = getWeekRanges(currentMonth, currentYear);
-    const weeksLastMonth = getWeekRanges(lastMonth, lastYear);
-  
-    for (let i = 0; i < 4; i++) {
-      const thisMonth = await this.calculateConsumption({
-        start: weeksThisMonth[i][0],
-        end: weeksThisMonth[i][1],
-      });
-  
-      const lastMonth = await this.calculateConsumption({
-        start: weeksLastMonth[i][0],
-        end: weeksLastMonth[i][1],
-      });
-  
-      result.push({
-        Weeks: weekLabels[i],
-        thisMonth: +thisMonth.toFixed(2),
-        lastMonth: +lastMonth.toFixed(2),
-      });
+  const weekLabels = ["Week1", "Week2", "Week3", "Week4"];
+  const result: { Weeks: string; [key: string]: number | string }[] = [];
+
+  const getWeekRanges = (month: number, year: number) => {
+    const weeks: [string, string][] = [];
+    const startDate = new Date(year, month - 1, 1); // first day of month
+    const firstMonday = new Date(startDate);
+    while (firstMonday.getDay() !== 1) {
+      firstMonday.setDate(firstMonday.getDate() + 1);
     }
-  
-    return result;
+
+    for (let i = 0; i < 4; i++) {
+      const weekStart = new Date(firstMonday);
+      weekStart.setDate(firstMonday.getDate() + i * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      weeks.push([
+        new Date(weekStart.setHours(0, 0, 0, 0)).toISOString(),
+        new Date(weekEnd.setHours(23, 59, 59, 999)).toISOString(),
+      ]);
+    }
+
+    return weeks;
+  };
+
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const lastMonthDate = new Date(now.setMonth(now.getMonth() - 1));
+  const lastMonth = lastMonthDate.getMonth() + 1;
+  const lastYear = lastMonthDate.getFullYear();
+
+  const weeksThisMonth = getWeekRanges(currentMonth, currentYear);
+  const weeksLastMonth = getWeekRanges(lastMonth, lastYear);
+
+  for (let i = 0; i < 4; i++) {
+    const thisMonth = await this.calculateConsumption({
+      start: weeksThisMonth[i][0],
+      end: weeksThisMonth[i][1],
+    });
+
+    const lastMonth = await this.calculateConsumption({
+      start: weeksLastMonth[i][0],
+      end: weeksLastMonth[i][1],
+    });
+
+    result.push({
+      Weeks: weekLabels[i],
+      "This Month": +thisMonth.toFixed(2),
+      "Last Month": +lastMonth.toFixed(2),
+    });
   }
+
+  return result;
+}
+
   private getMonthDateRange(year: number, month: number): { start: string; end: string } {
     const start = new Date(Date.UTC(year, month, 1, 0, 0, 0));
     const end = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999)); // last day of month
@@ -328,13 +325,13 @@ async getWeeklyGeneration() {
   
 
   async getYearlyGeneration(): Promise<
-  { month: string; currentYear: number; previousYear: number }[]
+  { month: string; [key: string]: number | string }[]
 > {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const currentYear = new Date().getFullYear();
   const previousYear = currentYear - 1;
 
-  const result: { month: string; currentYear: number; previousYear: number }[] = [];
+  const result: { month: string; [key: string]: number | string }[] = [];
 
   for (let month = 0; month < 12; month++) {
     const currentYearRange = this.getMonthDateRange(currentYear, month);
@@ -345,13 +342,14 @@ async getWeeklyGeneration() {
 
     result.push({
       month: months[month],
-      currentYear: +currentYearConsumption.toFixed(2),
-      previousYear: +previousYearConsumption.toFixed(2),
+      "Current Year": +currentYearConsumption.toFixed(2),
+      "Previous Year": +previousYearConsumption.toFixed(2),
     });
   }
 
   return result;
 }
+
 
 }
   
