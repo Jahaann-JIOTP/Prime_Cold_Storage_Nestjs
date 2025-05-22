@@ -40,20 +40,15 @@ export class Compressor2Service{
     }
   }
 
-  async getTodayData() {
+async getTodayData() {
   const collection = await this.getCollection();
 
-  const now = new Date();
+  const now = moment().tz("Asia/Karachi");
 
-  // UTC start of today
-  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-  // UTC end of today
-  const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
-  // UTC start of yesterday
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
+  const todayStart = now.clone().startOf('day'); // 00:00:00 Asia/Karachi
+  const todayEnd = now.clone().endOf('day');     // 23:59:59 Asia/Karachi
+  const yesterdayStart = todayStart.clone().subtract(1, 'day'); // 00:00:00 of yesterday
 
-  // Match between yesterday start and today end
   const matchStage = {
     timestamp: {
       $gte: yesterdayStart.toISOString(),
@@ -61,11 +56,9 @@ export class Compressor2Service{
     },
   };
 
-  // Projection including timestamp and solar keys
   const projection: any = { timestamp: 1 };
   this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
-  // Fetch data from DB sorted by timestamp ascending
   const data = await collection
     .aggregate([
       { $match: matchStage },
@@ -74,64 +67,55 @@ export class Compressor2Service{
     ])
     .toArray();
 
-  // Convert data timestamps to Date objects once for efficiency
-  data.forEach((doc) => (doc._date = new Date(doc.timestamp)));
+  // Convert to moment in Asia/Karachi for consistent time zone handling
+  data.forEach((doc) => {
+    doc._moment = moment(doc.timestamp).tz("Asia/Karachi");
+  });
 
-  // Prepare hour boundaries for Yesterday and Today in UTC
-  // We need 25 points for each day (0:00 to 24:00) to calculate 24 intervals
- function getHourBoundaries(startDate: Date): Date[] {
-  const boundaries: Date[] = [];
-  for (let h = 0; h <= 24; h++) {
-    boundaries.push(new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), h, 0, 0, 0)));
+  function getHourBoundaries(startMoment: moment.Moment): moment.Moment[] {
+    const boundaries: moment.Moment[] = [];
+    for (let h = 0; h <= 24; h++) {
+      boundaries.push(startMoment.clone().startOf('day').add(h, 'hours'));
+    }
+    return boundaries;
   }
-  return boundaries;
-}
 
   const yesterdayHours = getHourBoundaries(yesterdayStart);
   const todayHours = getHourBoundaries(todayStart);
 
-  // Helper: interpolate value at a given timestamp for a key between two docs
   function interpolateValue(time: number, beforeDoc: any, afterDoc: any, key: string) {
-    if (!beforeDoc) return afterDoc[key];
-    if (!afterDoc) return beforeDoc[key];
+    if (!beforeDoc) return afterDoc?.[key];
+    if (!afterDoc) return beforeDoc?.[key];
 
-    const t0 = beforeDoc._date.getTime();
-    const t1 = afterDoc._date.getTime();
+    const t0 = beforeDoc._moment.valueOf();
+    const t1 = afterDoc._moment.valueOf();
     const v0 = beforeDoc[key];
     const v1 = afterDoc[key];
 
-    if (t1 === t0) return v0; // avoid division by zero
-
-    // Linear interpolation formula
+    if (t1 === t0) return v0;
     return v0 + ((v1 - v0) * (time - t0)) / (t1 - t0);
   }
 
-  // For fast lookup, build an index by day ('Today' or 'Yesterday')
-  function filterDataByDay(dayISO: string) {
-    return data.filter((doc) => doc._date.toISOString().slice(0, 10) === dayISO);
+  function filterDataByDay(day: moment.Moment) {
+    const dayStr = day.format("YYYY-MM-DD");
+    return data.filter((doc) => doc._moment.format("YYYY-MM-DD") === dayStr);
   }
 
-  const todayISO = todayStart.toISOString().slice(0, 10);
-  const yesterdayISO = yesterdayStart.toISOString().slice(0, 10);
-
   const dataByDay = {
-    Today: filterDataByDay(todayISO),
-    Yesterday: filterDataByDay(yesterdayISO),
+    Today: filterDataByDay(todayStart),
+    Yesterday: filterDataByDay(yesterdayStart),
   };
 
-  // Helper: for a given array of docs sorted by time, find docs immediately before and after targetTime
   function findBoundingDocs(docs: any[], targetTime: number) {
     if (docs.length === 0) return { before: null, after: null };
 
     let before = null;
     let after = null;
 
-    // Binary search for efficiency
-    let low = 0,
-      high = docs.length - 1;
+    let low = 0, high = docs.length - 1;
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
-      const midTime = docs[mid]._date.getTime();
+      const midTime = docs[mid]._moment.valueOf();
 
       if (midTime === targetTime) {
         before = docs[mid];
@@ -148,40 +132,34 @@ export class Compressor2Service{
     return { before, after };
   }
 
-  // Calculate hourly data
   const hourly: any[] = [];
 
   for (let h = 0; h < 24; h++) {
-    const hourStr = h.toString().padStart(2, '0') + ':00';
+    const hourStr = todayHours[h].format("HH:00");
 
     let todayTotal = 0;
     let yesterdayTotal = 0;
 
     for (const key of this.Compressor2Keys) {
-      // For Yesterday: delta = value at hour h+1 - value at hour h
-      const yesterdayStartTime = yesterdayHours[h].getTime();
-      const yesterdayEndTime = yesterdayHours[h + 1].getTime();
+      const yStart = yesterdayHours[h].valueOf();
+      const yEnd = yesterdayHours[h + 1].valueOf();
+      const tStart = todayHours[h].valueOf();
+      const tEnd = todayHours[h + 1].valueOf();
 
-      const { before: yBeforeStart, after: yAfterStart } = findBoundingDocs(dataByDay.Yesterday, yesterdayStartTime);
-      const { before: yBeforeEnd, after: yAfterEnd } = findBoundingDocs(dataByDay.Yesterday, yesterdayEndTime);
+      const { before: yBeforeStart, after: yAfterStart } = findBoundingDocs(dataByDay.Yesterday, yStart);
+      const { before: yBeforeEnd, after: yAfterEnd } = findBoundingDocs(dataByDay.Yesterday, yEnd);
 
-      const valStartYesterday = interpolateValue(yesterdayStartTime, yBeforeStart, yAfterStart, key);
-      const valEndYesterday = interpolateValue(yesterdayEndTime, yBeforeEnd, yAfterEnd, key);
-
+      const valStartYesterday = interpolateValue(yStart, yBeforeStart, yAfterStart, key);
+      const valEndYesterday = interpolateValue(yEnd, yBeforeEnd, yAfterEnd, key);
       if (valStartYesterday != null && valEndYesterday != null) {
         yesterdayTotal += valEndYesterday - valStartYesterday;
       }
 
-      // For Today: delta = value at hour h+1 - value at hour h
-      const todayStartTime = todayHours[h].getTime();
-      const todayEndTime = todayHours[h + 1].getTime();
+      const { before: tBeforeStart, after: tAfterStart } = findBoundingDocs(dataByDay.Today, tStart);
+      const { before: tBeforeEnd, after: tAfterEnd } = findBoundingDocs(dataByDay.Today, tEnd);
 
-      const { before: tBeforeStart, after: tAfterStart } = findBoundingDocs(dataByDay.Today, todayStartTime);
-      const { before: tBeforeEnd, after: tAfterEnd } = findBoundingDocs(dataByDay.Today, todayEndTime);
-
-      const valStartToday = interpolateValue(todayStartTime, tBeforeStart, tAfterStart, key);
-      const valEndToday = interpolateValue(todayEndTime, tBeforeEnd, tAfterEnd, key);
-
+      const valStartToday = interpolateValue(tStart, tBeforeStart, tAfterStart, key);
+      const valEndToday = interpolateValue(tEnd, tBeforeEnd, tAfterEnd, key);
       if (valStartToday != null && valEndToday != null) {
         todayTotal += valEndToday - valStartToday;
       }

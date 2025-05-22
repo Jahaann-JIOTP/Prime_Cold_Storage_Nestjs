@@ -21,8 +21,8 @@ async getPowerAverages(startDate: string, endDate: string) {
   const collection = db.collection('prime_historical_data');
 
   // Define timezone offset +05:00 for Pakistan
-  const startISO = new Date(`${startDate}T00:00:00.000+05:00`);
-  const endISO = new Date(`${endDate}T23:59:59.999+05:00`);
+  // const startISO = new Date(`${startDate}T00:00:00.000+05:00`);
+  // const endISO = new Date(`${endDate}T23:59:59.999+05:00`);
 
   const pipeline = [
     {
@@ -33,6 +33,9 @@ async getPowerAverages(startDate: string, endDate: string) {
         }
       }
     },
+
+    //  $gte: startISO,
+    //     $lte: endISO,
     {
       $addFields: {
         // Convert timestamp string to Date
@@ -47,7 +50,7 @@ async getPowerAverages(startDate: string, endDate: string) {
             date: "$date",
             unit: "hour",
             binSize: 1,
-            timezone: "+05:00"
+            // timezone: "+05:00"
           }
         }
       }

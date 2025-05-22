@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Generation } from './schemas/generation.schema';
 import { GenerationDto } from './dto/generation.dto'; 
+import * as moment from 'moment-timezone';
 
 export interface HourlyData {
   Time: string;
@@ -103,48 +104,41 @@ export class GenerationService {
   
   
 
+
+
 async getWeeklyGeneration() {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const result: { Day: string; [key: string]: number | string }[] = [];
 
-  const now = new Date();
+  const now = moment().tz('Asia/Karachi');
 
-  const isoDay = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
+  // Get Monday of this week in Asia/Karachi
+  const mondayThisWeek = now.clone().startOf('week').add(1, 'day'); // Monday
+  if (mondayThisWeek.day() === 1) {
+    // Confirmed Monday
+    for (let i = 0; i < 7; i++) {
+      const thisDayStart = mondayThisWeek.clone().add(i, 'days').startOf('day');
+      const thisDayEnd = thisDayStart.clone().endOf('day');
 
-  const mondayThisWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  mondayThisWeek.setUTCDate(mondayThisWeek.getUTCDate() - (isoDay - 1));
-  mondayThisWeek.setUTCHours(0, 0, 0, 0);
+      const lastWeekStart = thisDayStart.clone().subtract(7, 'days');
+      const lastWeekEnd = thisDayEnd.clone().subtract(7, 'days');
 
-  for (let i = 0; i < 7; i++) {
-    const thisDayStart = new Date(mondayThisWeek);
-    thisDayStart.setUTCDate(mondayThisWeek.getUTCDate() + i);
-    thisDayStart.setUTCHours(0, 0, 0, 0);
+      const thisWeekConsumption = await this.calculateConsumption({
+        start: thisDayStart.toISOString(),
+        end: thisDayEnd.toISOString(),
+      });
 
-    const thisDayEnd = new Date(thisDayStart);
-    thisDayEnd.setUTCHours(23, 59, 59, 999);
+      const lastWeekConsumption = await this.calculateConsumption({
+        start: lastWeekStart.toISOString(),
+        end: lastWeekEnd.toISOString(),
+      });
 
-    const lastWeekStart = new Date(thisDayStart);
-    lastWeekStart.setUTCDate(thisDayStart.getUTCDate() - 7);
-    lastWeekStart.setUTCHours(0, 0, 0, 0);
-
-    const lastWeekEnd = new Date(lastWeekStart);
-    lastWeekEnd.setUTCHours(23, 59, 59, 999);
-
-    const thisWeekConsumption = await this.calculateConsumption({
-      start: thisDayStart.toISOString(),
-      end: thisDayEnd.toISOString(),
-    });
-
-    const lastWeekConsumption = await this.calculateConsumption({
-      start: lastWeekStart.toISOString(),
-      end: lastWeekEnd.toISOString(),
-    });
-
-    result.push({
-      Day: days[i],
-      "This Week": +thisWeekConsumption.toFixed(2),
-      "Last Week": +lastWeekConsumption.toFixed(2),
-    });
+      result.push({
+        Day: days[i],
+        "This Week": +thisWeekConsumption.toFixed(2),
+        "Last Week": +lastWeekConsumption.toFixed(2),
+      });
+    }
   }
 
   return result;
@@ -157,80 +151,83 @@ async getWeeklyGeneration() {
 
 
 
+
   
-  async getTodayGeneration() {
-    const todayRange = this.getDayRange(0); // today
-    const yesterdayRange = this.getDayRange(-1); // yesterday
-  
-    const meterIds = ["U1", "U2"];
-    const suffix = "Active_Energy_Total_Consumed";
-    const projection = { timestamp: 1 };
-  
-    meterIds.forEach(id => projection[`${id}_${suffix}`] = 1);
-  
-    // Fetch today's data
-    const todayData = await this.generationModel.aggregate([
-      { $match: { timestamp: { $gte: todayRange.start, $lte: todayRange.end } } },
-      { $project: projection },
-      { $sort: { timestamp: 1 } }
-    ]);
-  
-    // Fetch yesterday's data
-    const yesterdayData = await this.generationModel.aggregate([
-      { $match: { timestamp: { $gte: yesterdayRange.start, $lte: yesterdayRange.end } } },
-      { $project: projection },
-      { $sort: { timestamp: 1 } }
-    ]);
-  
-    const hourlyData: HourlyData[] = [];
-  
-    for (let hour = 0; hour < 24; hour++) {
-      const calculateHourConsumption = (data: any[]) => {
-        const firstValues = {};
-        const lastValues = {};
-  
-        data.forEach(doc => {
-          const timestamp = new Date(doc.timestamp);
-          const docHour = timestamp.getHours();
-  
-          if (docHour === hour) {
-            meterIds.forEach(id => {
-              const key = `${id}_${suffix}`;
-              if (doc[key] !== undefined) {
-                if (firstValues[key] === undefined) firstValues[key] = doc[key];
-                lastValues[key] = doc[key];
-              }
-            });
-          }
-        });
-  
-        if (Object.keys(firstValues).length === 0 || Object.keys(lastValues).length === 0) {
-          return 0; // No valid data
+ 
+
+async getTodayGeneration() {
+  const todayRange = this.getDayRange(0); // today
+  const yesterdayRange = this.getDayRange(-1); // yesterday
+
+  const meterIds = ["U1", "U2"];
+  const suffix = "Active_Energy_Total_Consumed";
+  const projection = { timestamp: 1 };
+  meterIds.forEach(id => projection[`${id}_${suffix}`] = 1);
+
+  // Fetch today's data
+  const todayData = await this.generationModel.aggregate([
+    { $match: { timestamp: { $gte: todayRange.start, $lte: todayRange.end } } },
+    { $project: projection },
+    { $sort: { timestamp: 1 } }
+  ]);
+
+  // Fetch yesterday's data
+  const yesterdayData = await this.generationModel.aggregate([
+    { $match: { timestamp: { $gte: yesterdayRange.start, $lte: yesterdayRange.end } } },
+    { $project: projection },
+    { $sort: { timestamp: 1 } }
+  ]);
+
+  const hourlyData: HourlyData[] = [];
+
+  for (let hour = 0; hour < 24; hour++) {
+    const calculateHourConsumption = (data: any[]) => {
+      const firstValues = {};
+      const lastValues = {};
+
+      data.forEach(doc => {
+        const karachiTime = moment(doc.timestamp).tz('Asia/Karachi');
+        const docHour = karachiTime.hour();
+
+        if (docHour === hour) {
+          meterIds.forEach(id => {
+            const key = `${id}_${suffix}`;
+            if (doc[key] !== undefined) {
+              if (firstValues[key] === undefined) firstValues[key] = doc[key];
+              lastValues[key] = doc[key];
+            }
+          });
         }
-  
-        let consumption = 0;
-        Object.keys(firstValues).forEach(key => {
-          if (lastValues[key] !== undefined) {
-            consumption += (lastValues[key] - firstValues[key]);
-          }
-        });
-  
-        return isNaN(consumption) ? 0 : +consumption.toFixed(2);
-      };
-  
-      const todayConsumption = calculateHourConsumption(todayData);
-      const yesterdayConsumption = calculateHourConsumption(yesterdayData);
-  
-      hourlyData.push({
-        Time: `${hour < 10 ? '0' + hour : hour}:00`,
-        Today: todayConsumption,
-        Yesterday: yesterdayConsumption,
       });
-    }
-  
-    console.log("Hourly Data:", hourlyData);
-    return hourlyData;
+
+      if (Object.keys(firstValues).length === 0 || Object.keys(lastValues).length === 0) {
+        return 0; // No valid data
+      }
+
+      let consumption = 0;
+      Object.keys(firstValues).forEach(key => {
+        if (lastValues[key] !== undefined) {
+          consumption += (lastValues[key] - firstValues[key]);
+        }
+      });
+
+      return isNaN(consumption) ? 0 : +consumption.toFixed(2);
+    };
+
+    const todayConsumption = calculateHourConsumption(todayData);
+    const yesterdayConsumption = calculateHourConsumption(yesterdayData);
+
+    hourlyData.push({
+      Time: `${hour.toString().padStart(2, '0')}:00`,
+      Today: todayConsumption,
+      Yesterday: yesterdayConsumption,
+    });
   }
+
+  console.log("Hourly Data:", hourlyData);
+  return hourlyData;
+}
+
   
   
   
