@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MongoClient } from 'mongodb';
+import * as moment from 'moment';
 
 @Injectable()
 export class ConVsProService {
@@ -16,59 +17,55 @@ export class ConVsProService {
   }
 
 
+
+
 async getPowerAverages(startDate: string, endDate: string) {
   const db = await this.connect();
   const collection = db.collection('prime_historical_data');
 
-  // Define timezone offset +05:00 for Pakistan
-  // const startISO = new Date(`${startDate}T00:00:00.000+05:00`);
-  // const endISO = new Date(`${endDate}T23:59:59.999+05:00`);
+  // Parse input dates as start and end of day in Asia/Karachi timezone,
+  // then convert to UTC Date for MongoDB query
+  const startDateTime = moment.tz(startDate, "YYYY-MM-DD", "Asia/Karachi").startOf('day').utc().toDate();
+  const endDateTime = moment.tz(endDate, "YYYY-MM-DD", "Asia/Karachi").endOf('day').utc().toDate();
 
+  // Aggregation pipeline
   const pipeline = [
-    {
-      $match: {
-        timestamp: {
-          $gte: `${startDate}T00:00:00.000+05:00`,
-          $lte: `${endDate}T23:59:59.999+05:00`,
-        }
-      }
-    },
-
-    //  $gte: startISO,
-    //     $lte: endISO,
+    // Convert timestamp string to Date (UTC)
     {
       $addFields: {
-        // Convert timestamp string to Date
         date: { $toDate: "$timestamp" }
       }
     },
+    // Filter dates between start and end (stored in UTC)
     {
-      // Create a new field hourStart which represents the start of the hour (like 2025-05-15 13:00:00)
+      $match: {
+        date: {
+          $gte: startDateTime,
+          $lte: endDateTime
+        }
+      }
+    },
+    // Truncate to hour respecting Asia/Karachi timezone
+    {
       $addFields: {
         hourStart: {
           $dateTrunc: {
             date: "$date",
             unit: "hour",
-            binSize: 1,
-            // timezone: "+05:00"
+            timezone: "Asia/Karachi"
           }
         }
       }
     },
-    {
-      $sort: { date: 1 }
-    },
+    { $sort: { date: 1 } },
     {
       $group: {
         _id: "$hourStart",
-
         first_solar: { $first: { $ifNull: ["$U2_Active_Energy_Total", 0] } },
         last_solar: { $last: { $ifNull: ["$U2_Active_Energy_Total", 0] } },
 
         first_wapda: { $first: { $ifNull: ["$U1_Active_Energy_Total_Consumed", 0] } },
         last_wapda: { $last: { $ifNull: ["$U1_Active_Energy_Total_Consumed", 0] } },
-
-        
 
         first_compressor1: { $first: { $ifNull: ["$U3_Active_Energy_Total_Consumed", 0] } },
         last_compressor1: { $last: { $ifNull: ["$U3_Active_Energy_Total_Consumed", 0] } },
@@ -80,17 +77,14 @@ async getPowerAverages(startDate: string, endDate: string) {
         last_compressor3: { $last: { $ifNull: ["$U5_Active_Energy_Total_Consumed", 0] } },
       }
     },
-    {
-      $sort: { _id: 1 }
-    }
+    { $sort: { _id: 1 } }
   ];
 
   const data = await collection.aggregate(pipeline).toArray();
 
-  return data.map((entry) => {
+  return data.map(entry => {
     const solar = (entry.last_solar || 0) - (entry.first_solar || 0);
     const wapda = (entry.last_wapda || 0) - (entry.first_wapda || 0);
-    
 
     const compressor1 = (entry.last_compressor1 || 0) - (entry.first_compressor1 || 0);
     const compressor2 = (entry.last_compressor2 || 0) - (entry.first_compressor2 || 0);
@@ -98,28 +92,23 @@ async getPowerAverages(startDate: string, endDate: string) {
 
     const sum_of_compressors = compressor1 + compressor2 + compressor3;
     const total_consumption = solar + wapda;
-    // const unaccounted = total_consumption - sum_of_compressors;
- const losses = total_consumption - sum_of_compressors;
-    // Convert _id (hourStart) to ISO string with timezone offset if needed
-    const hourDate = new Date(entry._id);
+    const losses = total_consumption - sum_of_compressors;
 
-    const formattedDate = `${hourDate.getFullYear()}-${String(hourDate.getMonth()+1).padStart(2,'0')}-${String(hourDate.getDate()).padStart(2,'0')} ${String(hourDate.getHours()).padStart(2,'0')}:00`;
+    // Format date in Asia/Karachi timezone for output
+    const formattedDate = moment(entry._id).tz("Asia/Karachi").format("YYYY-MM-DD HH:mm");
 
     return {
       date: formattedDate,
       solar: +solar.toFixed(2),
       wapda: +wapda.toFixed(2),
-      // wapda_Export: +wapda_Export.toFixed(2),
       compressor1: +compressor1.toFixed(2),
       compressor2: +compressor2.toFixed(2),
       compressor3: +compressor3.toFixed(2),
-      // total_compressors: +sum_of_compressors.toFixed(2),
-      // total_consumption: +total_consumption.toFixed(2),
-      // unaccounted_energy: +unaccounted.toFixed(2),
-       losses: +losses.toFixed(2),
+      losses: +losses.toFixed(2),
     };
   });
 }
+
 
 
 
