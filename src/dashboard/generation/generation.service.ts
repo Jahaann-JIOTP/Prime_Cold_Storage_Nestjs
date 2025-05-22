@@ -162,14 +162,17 @@ private async calculateConsumption(range: { start: string; end: string }) {
 
 
 async calculateConsumption1(range: { start: string; end: string }): Promise<number> {
+  // Required keys sirf
   const solarKeys = ["U2_Active_Energy_Total"];
   const wapdaKeys = ["U1_Active_Energy_Total_Consumed"];
 
+  // Projection banayen sirf required keys ke liye
   const projection: Record<string, number> = { timestamp: 1 };
   [...solarKeys, ...wapdaKeys].forEach(key => {
     projection[key] = 1;
   });
 
+  // Timestamp ko UTC me convert karen consistency ke liye
   const startUTC = moment.tz(range.start, 'Asia/Karachi').utc().toISOString();
   const endUTC = moment.tz(range.end, 'Asia/Karachi').utc().toISOString();
 
@@ -186,6 +189,7 @@ async calculateConsumption1(range: { start: string; end: string }): Promise<numb
     { $sort: { timestamp: 1 } },
   ]);
 
+  // Initialize first and last values for each key
   const firstValues: Record<string, number | null> = {};
   const lastValues: Record<string, number | null> = {};
   [...solarKeys, ...wapdaKeys].forEach(key => {
@@ -193,6 +197,7 @@ async calculateConsumption1(range: { start: string; end: string }): Promise<numb
     lastValues[key] = null;
   });
 
+  // Find first and last non-null values for each key in the data
   for (const doc of data) {
     [...solarKeys, ...wapdaKeys].forEach(key => {
       const val = doc[key];
@@ -203,30 +208,18 @@ async calculateConsumption1(range: { start: string; end: string }): Promise<numb
     });
   }
 
+  // Calculate consumption for each key and avoid negative values (meter resets)
   const consumption: Record<string, number> = {};
   [...solarKeys, ...wapdaKeys].forEach(key => {
-    const first = firstValues[key];
-    const last = lastValues[key];
-
-    if (first !== null && last !== null) {
-      const diff = last - first;
-
-      // Debug log per key
-      console.log(`[DEBUG] Key: ${key}`);
-      console.log(`        First Value: ${first}`);
-      console.log(`        Last Value:  ${last}`);
-      console.log(`        Difference:  ${diff}`);
-      if (diff < 0) {
-        console.log(`        ⚠️ Negative difference detected! Meter may have reset.`);
-      }
-
+    if (firstValues[key] !== null && lastValues[key] !== null) {
+      const diff = lastValues[key]! - firstValues[key]!;
       consumption[key] = diff >= 0 ? diff : 0;
     } else {
-      console.log(`[DEBUG] Key: ${key} has insufficient data (null value).`);
       consumption[key] = 0;
     }
   });
 
+  // Sum per group
   const sumGroup = (keys: string[]) =>
     keys.reduce((sum, key) => sum + (consumption[key] || 0), 0);
 
@@ -234,16 +227,14 @@ async calculateConsumption1(range: { start: string; end: string }): Promise<numb
   const wapdaImport = sumGroup(wapdaKeys);
   const totalConsumption = solar + wapdaImport;
 
+  // Debug logs
   console.log(`[DEBUG] Range: ${startUTC} to ${endUTC}`);
-  console.log(`[DEBUG] Solar Tags: ${solarKeys.join(", ")}`);
-  console.log(`[DEBUG] WAPDA Tags: ${wapdaKeys.join(", ")}`);
-  console.log(`[DEBUG] Solar Consumption Total: ${solar}`);
-  console.log(`[DEBUG] WAPDA Import Consumption Total: ${wapdaImport}`);
-  console.log(`[DEBUG] Total Consumption: ${totalConsumption}`);
+  console.log(`[DEBUG] Solar Consumption:`, solar);
+  console.log(`[DEBUG] WAPDA Import Consumption:`, wapdaImport);
+  console.log(`[DEBUG] Total Consumption:`, totalConsumption);
 
   return +totalConsumption.toFixed(2);
 }
-
 
 
 
