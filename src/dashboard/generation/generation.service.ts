@@ -32,77 +32,221 @@ export class GenerationService {
     }
   }
 
-  private async calculateConsumption(range: { start: string; end: string }) {
-  const meterIds = ["U1", "U2"];
-  const suffix = "Active_Energy_Total_Consumed";
+private async calculateConsumption(range: { start: string; end: string }) {
+  // Meter aur unke corresponding suffix ko alag-alag define karen
+  const meterSuffixMap: Record<string, string> = {
+    U1: "Active_Energy_Total_Consumed",
+    U2: "Active_Energy_Total",
+  };
 
-  const solarKeys = ["U2"]; // Make sure these are correct for your case
+  // Solar and transformer groups (agar alag karna ho to)
+  const solarKeys = ["U2"];
   const transformerKeys = ["U1"];
 
-  // Project only required fields
-  const projection: any = { timestamp: 1 };
-  meterIds.forEach(id => {
-    projection[`${id}_${suffix}`] = 1;
+  // Projection tayar karen sirf required meter_suffix ke liye
+  const projection: Record<string, number> = { timestamp: 1 };
+  Object.entries(meterSuffixMap).forEach(([meterId, suffix]) => {
+    projection[`${meterId}_${suffix}`] = 1;
   });
 
-  // Query data sorted by timestamp ascending
+  // Data fetch karen sorted by timestamp
   const data = await this.generationModel.aggregate([
-    { $match: { timestamp: { $gte: range.start, $lte: range.end } } },
+    {
+      $match: {
+        timestamp: {
+          $gte: range.start,
+          $lte: range.end,
+        },
+      },
+    },
     { $project: projection },
     { $sort: { timestamp: 1 } },
   ]);
 
-  // Object to hold first and last values per meter key
+  // Initialize first and last values for each meter_suffix key
   const firstValues: Record<string, number | null> = {};
   const lastValues: Record<string, number | null> = {};
-
-  meterIds.forEach(id => {
-    const key = `${id}_${suffix}`;
+  Object.entries(meterSuffixMap).forEach(([meterId, suffix]) => {
+    const key = `${meterId}_${suffix}`;
     firstValues[key] = null;
     lastValues[key] = null;
   });
 
+  // Populate first and last values for each key from data
   for (const doc of data) {
-    meterIds.forEach(id => {
-      const key = `${id}_${suffix}`;
+    Object.entries(meterSuffixMap).forEach(([meterId, suffix]) => {
+      const key = `${meterId}_${suffix}`;
       const val = doc[key];
-
       if (typeof val === "number") {
-        // If first value not set, set it
-        if (firstValues[key] === null) {
-          firstValues[key] = val;
-        }
-        // Update last value every time we see a new one (since data is sorted ascending)
+        if (firstValues[key] === null) firstValues[key] = val;
         lastValues[key] = val;
       }
     });
   }
 
-  // Calculate delta for each meter and sum separately for solar and transformer
-  let solarTotal = 0;
-  let transformerTotal = 0;
+  // Calculate consumption (last - first) for each meter_suffix key
+  const consumption: Record<string, number> = {};
+  Object.keys(firstValues).forEach(key => {
+    if (firstValues[key] !== null && lastValues[key] !== null) {
+      const diff = lastValues[key]! - firstValues[key]!;
+      consumption[key] = diff >= 0 ? diff : 0;  // Negative diff ko zero karen (meter reset handling)
+    } else {
+      consumption[key] = 0;
+    }
+  });
 
-  meterIds.forEach(id => {
-    const key = `${id}_${suffix}`;
+  // Sum consumption per meter group
+  const sumByMeterGroup = (meterIds: string[]) =>
+    meterIds.reduce((sum, meterId) => {
+      const key = `${meterId}_${meterSuffixMap[meterId]}`;
+      return sum + (consumption[key] || 0);
+    }, 0);
+
+  const solarTotal = sumByMeterGroup(solarKeys);
+  const transformerTotal = sumByMeterGroup(transformerKeys);
+
+  const totalConsumption = solarTotal + transformerTotal;
+
+  // Optional debug logs
+  console.log("Solar Consumption:", solarTotal);
+  console.log("Transformer Consumption:", transformerTotal);
+  console.log("Total Consumption:", totalConsumption);
+
+  return +totalConsumption.toFixed(2);
+}
+
+
+
+  
+  
+
+
+
+// async getWeeklyGeneration() {
+//   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+//   const result: { Day: string; [key: string]: number | string }[] = [];
+
+//   const now = moment().tz('Asia/Karachi');
+
+//   // Get Monday of this week in Asia/Karachi
+//   const mondayThisWeek = now.clone().startOf('week').add(1, 'day'); // Monday
+//   if (mondayThisWeek.day() === 1) {
+//     // Confirmed Monday
+//     for (let i = 0; i < 7; i++) {
+//       const thisDayStart = mondayThisWeek.clone().add(i, 'days').startOf('day');
+//       const thisDayEnd = thisDayStart.clone().endOf('day');
+
+//       const lastWeekStart = thisDayStart.clone().subtract(7, 'days');
+//       const lastWeekEnd = thisDayEnd.clone().subtract(7, 'days');
+
+//       const thisWeekConsumption = await this.calculateConsumption({
+//         start: thisDayStart.toISOString(),
+//         end: thisDayEnd.toISOString(),
+//       });
+
+//       const lastWeekConsumption = await this.calculateConsumption({
+//         start: lastWeekStart.toISOString(),
+//         end: lastWeekEnd.toISOString(),
+//       });
+
+//       result.push({
+//         Day: days[i],
+//         "This Week": +thisWeekConsumption.toFixed(2),
+//         "Last Week": +lastWeekConsumption.toFixed(2),
+//       });
+//     }
+//   }
+
+//   return result;
+// }
+
+
+async calculateConsumption1(range: { start: string; end: string }): Promise<number> {
+  const solarKeys = ["U2_Active_Energy_Total"];
+  const wapdaKeys = ["U1_Active_Energy_Total_Consumed"];
+
+  const projection: Record<string, number> = { timestamp: 1 };
+  [...solarKeys, ...wapdaKeys].forEach(key => {
+    projection[key] = 1;
+  });
+
+  const startUTC = moment.tz(range.start, 'Asia/Karachi').utc().toISOString();
+  const endUTC = moment.tz(range.end, 'Asia/Karachi').utc().toISOString();
+
+  const data = await this.generationModel.aggregate([
+    {
+      $match: {
+        timestamp: {
+          $gte: startUTC,
+          $lte: endUTC,
+        },
+      },
+    },
+    { $project: projection },
+    { $sort: { timestamp: 1 } },
+  ]);
+
+  const firstValues: Record<string, number | null> = {};
+  const lastValues: Record<string, number | null> = {};
+  [...solarKeys, ...wapdaKeys].forEach(key => {
+    firstValues[key] = null;
+    lastValues[key] = null;
+  });
+
+  for (const doc of data) {
+    [...solarKeys, ...wapdaKeys].forEach(key => {
+      const val = doc[key];
+      if (typeof val === "number") {
+        if (firstValues[key] === null) firstValues[key] = val;
+        lastValues[key] = val;
+      }
+    });
+  }
+
+  const consumption: Record<string, number> = {};
+  [...solarKeys, ...wapdaKeys].forEach(key => {
     const first = firstValues[key];
     const last = lastValues[key];
 
     if (first !== null && last !== null) {
-      const delta = last - first;
-      if (solarKeys.includes(id)) {
-        solarTotal += delta;
-      } else if (transformerKeys.includes(id)) {
-        transformerTotal += delta;
+      const diff = last - first;
+
+      // Debug log per key
+      console.log(`[DEBUG] Key: ${key}`);
+      console.log(`        First Value: ${first}`);
+      console.log(`        Last Value:  ${last}`);
+      console.log(`        Difference:  ${diff}`);
+      if (diff < 0) {
+        console.log(`        ⚠️ Negative difference detected! Meter may have reset.`);
       }
+
+      consumption[key] = diff >= 0 ? diff : 0;
+    } else {
+      console.log(`[DEBUG] Key: ${key} has insufficient data (null value).`);
+      consumption[key] = 0;
     }
   });
 
-  const total = solarTotal + transformerTotal;
-  return +total.toFixed(2);
+  const sumGroup = (keys: string[]) =>
+    keys.reduce((sum, key) => sum + (consumption[key] || 0), 0);
+
+  const solar = sumGroup(solarKeys);
+  const wapdaImport = sumGroup(wapdaKeys);
+  const totalConsumption = solar + wapdaImport;
+
+  console.log(`[DEBUG] Range: ${startUTC} to ${endUTC}`);
+  console.log(`[DEBUG] Solar Tags: ${solarKeys.join(", ")}`);
+  console.log(`[DEBUG] WAPDA Tags: ${wapdaKeys.join(", ")}`);
+  console.log(`[DEBUG] Solar Consumption Total: ${solar}`);
+  console.log(`[DEBUG] WAPDA Import Consumption Total: ${wapdaImport}`);
+  console.log(`[DEBUG] Total Consumption: ${totalConsumption}`);
+
+  return +totalConsumption.toFixed(2);
 }
 
-  
-  
+
+
+
 
 
 
@@ -111,11 +255,9 @@ async getWeeklyGeneration() {
   const result: { Day: string; [key: string]: number | string }[] = [];
 
   const now = moment().tz('Asia/Karachi');
-
-  // Get Monday of this week in Asia/Karachi
   const mondayThisWeek = now.clone().startOf('week').add(1, 'day'); // Monday
+
   if (mondayThisWeek.day() === 1) {
-    // Confirmed Monday
     for (let i = 0; i < 7; i++) {
       const thisDayStart = mondayThisWeek.clone().add(i, 'days').startOf('day');
       const thisDayEnd = thisDayStart.clone().endOf('day');
@@ -123,12 +265,13 @@ async getWeeklyGeneration() {
       const lastWeekStart = thisDayStart.clone().subtract(7, 'days');
       const lastWeekEnd = thisDayEnd.clone().subtract(7, 'days');
 
-      const thisWeekConsumption = await this.calculateConsumption({
+      // Call updated calculateConsumption to get total consumption for that day
+      const thisWeekConsumption = await this.calculateConsumption1({
         start: thisDayStart.toISOString(),
         end: thisDayEnd.toISOString(),
       });
 
-      const lastWeekConsumption = await this.calculateConsumption({
+      const lastWeekConsumption = await this.calculateConsumption1({
         start: lastWeekStart.toISOString(),
         end: lastWeekEnd.toISOString(),
       });
@@ -154,82 +297,100 @@ async getWeeklyGeneration() {
 
 
 
-
   
  
 
-async getTodayGeneration() {
-  const todayRange = this.getDayRange(0); // today
-  const yesterdayRange = this.getDayRange(-1); // yesterday
 
-  const meterIds = ["U1", "U2"];
-  const suffix = "Active_Energy_Total_Consumed";
-  const projection = { timestamp: 1 };
-  meterIds.forEach(id => projection[`${id}_${suffix}`] = 1);
 
-  // Fetch today's data
+
+
+async getTodayGeneration(): Promise<HourlyData[]> {
+  // Get start and end times for today and yesterday (assumed to return Date objects)
+  const todayRange = this.getDayRange(0);    // { start: Date, end: Date }
+  const yesterdayRange = this.getDayRange(-1);
+
+  // Define meters and their respective energy tags
+  const meterTags: Record<string, string> = {
+    U1: "Active_Energy_Total_Consumed",  // e.g. solar
+    U2: "Active_Energy_Total",           // e.g. wapda/grid
+  };
+
+  // Prepare projection for mongoose aggregate query
+  const projection: Record<string, number> = { timestamp: 1 };
+  Object.entries(meterTags).forEach(([id, tag]) => {
+    projection[`${id}_${tag}`] = 1;
+  });
+
+  // Fetch data for today and yesterday from MongoDB using aggregation
   const todayData = await this.generationModel.aggregate([
     { $match: { timestamp: { $gte: todayRange.start, $lte: todayRange.end } } },
     { $project: projection },
     { $sort: { timestamp: 1 } }
   ]);
 
-  // Fetch yesterday's data
   const yesterdayData = await this.generationModel.aggregate([
     { $match: { timestamp: { $gte: yesterdayRange.start, $lte: yesterdayRange.end } } },
     { $project: projection },
     { $sort: { timestamp: 1 } }
   ]);
 
+  // Array to hold hourly results
   const hourlyData: HourlyData[] = [];
 
-  for (let hour = 0; hour < 24; hour++) {
-    const calculateHourConsumption = (data: any[]) => {
-      const firstValues = {};
-      const lastValues = {};
+  // Function to calculate consumption for a single hour
+  const calculateHourConsumption = (data: any[], hour: number): number => {
+    const firstValues: Record<string, number> = {};
+    const lastValues: Record<string, number> = {};
 
-      data.forEach(doc => {
-        const karachiTime = moment(doc.timestamp).tz('Asia/Karachi');
-        const docHour = karachiTime.hour();
-
-        if (docHour === hour) {
-          meterIds.forEach(id => {
-            const key = `${id}_${suffix}`;
-            if (doc[key] !== undefined) {
-              if (firstValues[key] === undefined) firstValues[key] = doc[key];
-              lastValues[key] = doc[key];
-            }
-          });
-        }
-      });
-
-      if (Object.keys(firstValues).length === 0 || Object.keys(lastValues).length === 0) {
-        return 0; // No valid data
+    data.forEach(doc => {
+      const karachiTime = moment(doc.timestamp).tz("Asia/Karachi");
+      if (karachiTime.hour() === hour) {
+        // For each meter tag, record first and last values in this hour
+        Object.entries(meterTags).forEach(([id, tag]) => {
+          const key = `${id}_${tag}`;
+          if (doc[key] !== undefined) {
+            if (firstValues[key] === undefined) firstValues[key] = doc[key];
+            lastValues[key] = doc[key];
+          }
+        });
       }
+    });
 
-      let consumption = 0;
-      Object.keys(firstValues).forEach(key => {
-        if (lastValues[key] !== undefined) {
-          consumption += (lastValues[key] - firstValues[key]);
-        }
-      });
+    // If no data for this hour, consumption = 0
+    if (Object.keys(firstValues).length === 0 || Object.keys(lastValues).length === 0) {
+      return 0;
+    }
 
-      return isNaN(consumption) ? 0 : +consumption.toFixed(2);
-    };
+    // Sum differences (last - first) for all meters in this hour
+    let consumption = 0;
+    Object.keys(firstValues).forEach(key => {
+      let diff = lastValues[key] - firstValues[key];
+      if (diff < 0) diff = 0; // prevent negative values if meter resets
+      consumption += diff;
+    });
 
-    const todayConsumption = calculateHourConsumption(todayData);
-    const yesterdayConsumption = calculateHourConsumption(yesterdayData);
+    return +consumption.toFixed(2);
+  };
+
+  // Calculate hourly consumption for today and yesterday
+  for (let hour = 0; hour < 24; hour++) {
+    const todayConsumption = calculateHourConsumption(todayData, hour);
+    const yesterdayConsumption = calculateHourConsumption(yesterdayData, hour);
 
     hourlyData.push({
-      Time: `${hour.toString().padStart(2, '0')}:00`,
+      Time: `${hour.toString().padStart(2, "0")}:00`,
       Today: todayConsumption,
       Yesterday: yesterdayConsumption,
     });
   }
 
+  // Optional: log output for debug
   console.log("Hourly Data:", hourlyData);
+
   return hourlyData;
 }
+
+
 
   
   

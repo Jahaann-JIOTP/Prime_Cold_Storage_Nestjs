@@ -11,7 +11,7 @@ export class Generation extends Document {
   U1_Active_Energy_Total_Consumed?: number;
 
   @Prop()
-  U2_Active_Energy_Total_Consumed?: number;
+  U2_Active_Energy_Total?: number;
 
   
 }
