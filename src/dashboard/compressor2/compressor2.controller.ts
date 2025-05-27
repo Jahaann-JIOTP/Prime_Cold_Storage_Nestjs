@@ -1,6 +1,3 @@
-
-
-
 import { Controller, Get, Query } from '@nestjs/common'; // ✅ Required import
 import { Compressor2Service } from './compressor2.service';
 import { Getcompressor2Dto } from './dto/get-compressor.dto';

@@ -1,28 +1,19 @@
 
 import { Injectable } from '@nestjs/common';
-import { MongoClient } from 'mongodb';
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import * as moment from 'moment-timezone';
+import { Compressor2Document } from './schemas/compressor2.schema';
 import { Getcompressor2Dto } from './dto/get-compressor.dto';
-import * as moment from 'moment';
 
 
 @Injectable()
-export class Compressor2Service{
-  private readonly client: MongoClient;
-  private readonly dbName = 'iotdb';
-  private readonly collectionName = 'prime_historical_data';
+export class Compressor2Service {
   private readonly Compressor2Keys = ['U4_Active_Energy_Total_Consumed'];
 
-  constructor() {
-    this.client = new MongoClient('mongodb://admin:cisco123@13.234.241.103:27017/?authSource=iotdb');
-  }
-
-  private async getCollection() {
-    await this.client.connect();
-    const db = this.client.db(this.dbName);
-    return db.collection(this.collectionName);
-  }
-
-
+  constructor(
+    @InjectModel('Compressor2') private readonly compressorModel: Model<Compressor2Document>,
+  ) {}
 
 
   async handleQuery(query: Getcompressor2Dto) {
@@ -41,7 +32,7 @@ export class Compressor2Service{
   }
 
 async getTodayData() {
-  const collection = await this.getCollection();
+   const collection = this.compressorModel.collection;
 
   const now = moment().tz("Asia/Karachi");
 
@@ -180,7 +171,7 @@ async getTodayData() {
 
 
   async getWeekData() {
-    const collection = await this.getCollection();
+    const collection = this.compressorModel.collection;
 
     const now = new Date();
 
@@ -268,7 +259,7 @@ async getTodayData() {
   }
 
   async getYearData() {
-    const collection = await this.getCollection();
+    const collection = this.compressorModel.collection;
   
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -367,7 +358,7 @@ async getTodayData() {
     return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   async getMonthData() {
-    const collection = await this.getCollection();
+     const collection = this.compressorModel.collection;
 
     const now = new Date();
     const startOfThisMonth = moment().startOf('month').toDate();

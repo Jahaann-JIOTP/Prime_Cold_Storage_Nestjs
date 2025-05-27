@@ -4,29 +4,21 @@ import { Model } from 'mongoose';
 import { EnergyUsage } from './schemas/energy-usage.schema';
 import { EnergyUsageDto } from './dto/energy-usage.dto';
 
-export interface EnergyUsageResult {
-  date: string;
-  meterId: string;
-  consumption: number;
-  startValue: number;
-  endValue: number;
-}
-
 @Injectable()
 export class EnergyUsageService {
   constructor(
     @InjectModel(EnergyUsage.name) private usageModel: Model<EnergyUsage>,
   ) {}
 
-  async getEnergyUsage(dto: EnergyUsageDto): Promise<EnergyUsageResult[]> {
+  async getEnergyUsage(dto: EnergyUsageDto): Promise<any[]> {
     const { start_date, end_date, meterIds, suffixes } = dto;
-     const suffixArray = suffixes || [];
+    const suffixArray = suffixes || [];
 
     const start = new Date(start_date);
     const end = new Date(end_date);
     end.setDate(end.getDate() + 1);
 
-    const results: EnergyUsageResult[] = [];
+    const results: any[] = [];
 
     for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
@@ -40,12 +32,11 @@ export class EnergyUsageService {
         if (meterId === 'U2') {
           suffix = 'Active_Energy_Total';
 
-          // ❌ Skip U2 if correct suffix not in list
           if (!suffixArray.includes('Active_Energy_Total')) {
             continue;
           }
         } else {
-          suffix = suffixArray[i] || suffixArray[0]; // fallback to first suffix
+          suffix = suffixArray[i] || suffixArray[0];
         }
 
         const key = `${meterId}_${suffix}`;

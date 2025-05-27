@@ -1,15 +1,15 @@
 import { Schema, Document } from 'mongoose';
 
+export type Compressor2Document = Document & {
+  timestamp: Date;
+  U4_Active_Energy_Total_Consumed: number;
+  // other fields...
+};
+
 export const Compressor2Schema = new Schema({
   timestamp: { type: Date, required: true },
-  energyValue1: { type: Number, required: true },
-  energyValue2: { type: Number, required: true },
-  // You can add other energy-related fields as necessary
+  U4_Active_Energy_Total_Consumed: { type: Number },
+  // other fields...
+}, {
+  collection: 'prime_historical_data'  // <- this is critical, match your actual MongoDB collection name here
 });
-
-export interface Solar extends Document {
-  timestamp: Date;
-  energyValue1: number;
-  energyValue2: number;
-  // Add other fields as necessary
-}

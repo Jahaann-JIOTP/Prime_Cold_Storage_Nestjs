@@ -30,7 +30,7 @@ export class LogsDataService {
       "Power_Factor_L3",
     ],
     reactive_energy: [
-      "Reactive_Energy_Total", // Default tag, but will override for U4 meterId below
+      "Reactive_Energy_Total",
     ],
     apparent_energy: [
       "Apparent_Energy_Total",
@@ -81,7 +81,6 @@ export class LogsDataService {
           meterId,
         };
 
-        // Dynamic tag selection based on meterId and type
         let tagsToFetch = baseTags;
 
         if (type === "reactive_energy") {
@@ -90,7 +89,6 @@ export class LogsDataService {
           } else if (["U1", "U2", "U3", "U5"].includes(meterId)) {
             tagsToFetch = ["Reactive_Energy_Total"];
           } else {
-            // No tags for other meterIds (optional)
             tagsToFetch = [];
           }
         }
@@ -98,21 +96,7 @@ export class LogsDataService {
         for (const tag of tagsToFetch) {
           const field = `${meterId}_${tag}`;
           if (item[field] !== undefined) {
-            if (type === "active_power" && ["U_24", "U_25"].includes(meterId)) {
-              entry[tag] = item[field] / 1000;
-            } else if (
-              meterId === "G2_U20" &&
-              [
-                "APPARENT_POWER_S1_KVA",
-                "APPARENT_POWER_S2_KVA",
-                "APPARENT_POWER_S3_KVA",
-                "APPARENT_POWER_TOTAL_KVA",
-              ].includes(tag)
-            ) {
-              entry[tag] = item[field] / 1000;
-            } else {
-              entry[tag] = item[field];
-            }
+            entry[tag] = item[field]; // ✅ No division or condition, directly assign
           }
         }
 

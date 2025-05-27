@@ -1,36 +1,23 @@
-
-
 import { Injectable } from '@nestjs/common';
-import { MongoClient } from 'mongodb';
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import * as moment from 'moment-timezone';
+import { Compressor1Document } from './schemas/compressor1.schema';
 import { Getcompressor1Dto } from './dto/get-compressor1.dto';
-import * as moment from 'moment';
-
 
 @Injectable()
-export class Compressor1Service{
-  private readonly client: MongoClient;
-  private readonly dbName = 'iotdb';
-  private readonly collectionName = 'prime_historical_data';
+export class Compressor1Service {
   private readonly Compressor1Keys = ['U3_Active_Energy_Total_Consumed'];
 
-  constructor() {
-    this.client = new MongoClient('mongodb://admin:cisco123@13.234.241.103:27017/?authSource=iotdb');
-  }
-
-  private async getCollection() {
-    await this.client.connect();
-    const db = this.client.db(this.dbName);
-    return db.collection(this.collectionName);
-  }
-
-
-
+  constructor(
+    @InjectModel('Compressor1') private readonly compressorModel: Model<Compressor1Document>,
+  ) {}
 
   async handleQuery(query: Getcompressor1Dto) {
     switch (query.value) {
       case 'today':
         return this.getTodayData();
-      case 'week':
+   case 'week':
         return this.getWeekData();
       case 'month':
         return this.getMonthData();
@@ -41,143 +28,153 @@ export class Compressor1Service{
     }
   }
 
-async getTodayData() {
-  const collection = await this.getCollection();
+ async getTodayData() {
+   const collection = this.compressorModel.collection;
 
-  const now = moment().tz("Asia/Karachi");
+ 
+   const now = moment().tz("Asia/Karachi");
+ 
+   const todayStart = now.clone().startOf('day'); // 00:00:00 Asia/Karachi
+   const todayEnd = now.clone().endOf('day');     // 23:59:59 Asia/Karachi
+   const yesterdayStart = todayStart.clone().subtract(1, 'day'); // 00:00:00 of yesterday
+ 
+   const matchStage = {
+     timestamp: {
+       $gte: yesterdayStart.toISOString(),
+       $lte: todayEnd.toISOString(),
+     },
+   };
+ 
+   const projection: any = { timestamp: 1 };
+   this.Compressor1Keys.forEach((key) => (projection[key] = 1));
+ 
+   const data = await collection
+     .aggregate([
+       { $match: matchStage },
+       { $project: projection },
+       { $sort: { timestamp: 1 } },
+     ])
+     .toArray();
+ 
+   // Convert to moment in Asia/Karachi for consistent time zone handling
+   data.forEach((doc) => {
+     doc._moment = moment(doc.timestamp).tz("Asia/Karachi");
+   });
+ 
+   function getHourBoundaries(startMoment: moment.Moment): moment.Moment[] {
+     const boundaries: moment.Moment[] = [];
+     for (let h = 0; h <= 24; h++) {
+       boundaries.push(startMoment.clone().startOf('day').add(h, 'hours'));
+     }
+     return boundaries;
+   }
+ 
+   const yesterdayHours = getHourBoundaries(yesterdayStart);
+   const todayHours = getHourBoundaries(todayStart);
+ 
+   function interpolateValue(time: number, beforeDoc: any, afterDoc: any, key: string) {
+     if (!beforeDoc) return afterDoc?.[key];
+     if (!afterDoc) return beforeDoc?.[key];
+ 
+     const t0 = beforeDoc._moment.valueOf();
+     const t1 = afterDoc._moment.valueOf();
+     const v0 = beforeDoc[key];
+     const v1 = afterDoc[key];
+ 
+     if (t1 === t0) return v0;
+     return v0 + ((v1 - v0) * (time - t0)) / (t1 - t0);
+   }
+ 
+   function filterDataByDay(day: moment.Moment) {
+     const dayStr = day.format("YYYY-MM-DD");
+     return data.filter((doc) => doc._moment.format("YYYY-MM-DD") === dayStr);
+   }
+ 
+   const dataByDay = {
+     Today: filterDataByDay(todayStart),
+     Yesterday: filterDataByDay(yesterdayStart),
+   };
+ 
+   function findBoundingDocs(docs: any[], targetTime: number) {
+     if (docs.length === 0) return { before: null, after: null };
+ 
+     let before = null;
+     let after = null;
+ 
+     let low = 0, high = docs.length - 1;
+     while (low <= high) {
+       const mid = Math.floor((low + high) / 2);
+       const midTime = docs[mid]._moment.valueOf();
+ 
+       if (midTime === targetTime) {
+         before = docs[mid];
+         after = docs[mid];
+         break;
+       } else if (midTime < targetTime) {
+         before = docs[mid];
+         low = mid + 1;
+       } else {
+         after = docs[mid];
+         high = mid - 1;
+       }
+     }
+     return { before, after };
+   }
+ 
+   const hourly: any[] = [];
+ 
+   for (let h = 0; h < 24; h++) {
+     const hourStr = todayHours[h].format("HH:00");
+ 
+     let todayTotal = 0;
+     let yesterdayTotal = 0;
+ 
+     for (const key of this.Compressor1Keys) {
+       const yStart = yesterdayHours[h].valueOf();
+       const yEnd = yesterdayHours[h + 1].valueOf();
+       const tStart = todayHours[h].valueOf();
+       const tEnd = todayHours[h + 1].valueOf();
+ 
+       const { before: yBeforeStart, after: yAfterStart } = findBoundingDocs(dataByDay.Yesterday, yStart);
+       const { before: yBeforeEnd, after: yAfterEnd } = findBoundingDocs(dataByDay.Yesterday, yEnd);
+ 
+       const valStartYesterday = interpolateValue(yStart, yBeforeStart, yAfterStart, key);
+       const valEndYesterday = interpolateValue(yEnd, yBeforeEnd, yAfterEnd, key);
+       if (valStartYesterday != null && valEndYesterday != null) {
+         yesterdayTotal += valEndYesterday - valStartYesterday;
+       }
+ 
+       const { before: tBeforeStart, after: tAfterStart } = findBoundingDocs(dataByDay.Today, tStart);
+       const { before: tBeforeEnd, after: tAfterEnd } = findBoundingDocs(dataByDay.Today, tEnd);
+ 
+       const valStartToday = interpolateValue(tStart, tBeforeStart, tAfterStart, key);
+       const valEndToday = interpolateValue(tEnd, tBeforeEnd, tAfterEnd, key);
+       if (valStartToday != null && valEndToday != null) {
+         todayTotal += valEndToday - valStartToday;
+       }
+     }
+ 
+     hourly.push({
+       Time: hourStr,
+       Today: +todayTotal.toFixed(2),
+       Yesterday: +yesterdayTotal.toFixed(2),
+     });
+   }
+ 
+   return hourly;
+ }
 
-  const todayStart = now.clone().startOf('day'); // 00:00:00 Asia/Karachi
-  const todayEnd = now.clone().endOf('day');     // 23:59:59 Asia/Karachi
-  const yesterdayStart = todayStart.clone().subtract(1, 'day'); // 00:00:00 of yesterday
 
-  const matchStage = {
-    timestamp: {
-      $gte: yesterdayStart.toISOString(),
-      $lte: todayEnd.toISOString(),
-    },
-  };
 
-  const projection: any = { timestamp: 1 };
-  this.Compressor1Keys.forEach((key) => (projection[key] = 1));
 
-  const data = await collection
-    .aggregate([
-      { $match: matchStage },
-      { $project: projection },
-      { $sort: { timestamp: 1 } },
-    ])
-    .toArray();
 
-  // Convert to moment in Asia/Karachi for consistent time zone handling
-  data.forEach((doc) => {
-    doc._moment = moment(doc.timestamp).tz("Asia/Karachi");
-  });
 
-  function getHourBoundaries(startMoment: moment.Moment): moment.Moment[] {
-    const boundaries: moment.Moment[] = [];
-    for (let h = 0; h <= 24; h++) {
-      boundaries.push(startMoment.clone().startOf('day').add(h, 'hours'));
-    }
-    return boundaries;
-  }
 
-  const yesterdayHours = getHourBoundaries(yesterdayStart);
-  const todayHours = getHourBoundaries(todayStart);
 
-  function interpolateValue(time: number, beforeDoc: any, afterDoc: any, key: string) {
-    if (!beforeDoc) return afterDoc?.[key];
-    if (!afterDoc) return beforeDoc?.[key];
-
-    const t0 = beforeDoc._moment.valueOf();
-    const t1 = afterDoc._moment.valueOf();
-    const v0 = beforeDoc[key];
-    const v1 = afterDoc[key];
-
-    if (t1 === t0) return v0;
-    return v0 + ((v1 - v0) * (time - t0)) / (t1 - t0);
-  }
-
-  function filterDataByDay(day: moment.Moment) {
-    const dayStr = day.format("YYYY-MM-DD");
-    return data.filter((doc) => doc._moment.format("YYYY-MM-DD") === dayStr);
-  }
-
-  const dataByDay = {
-    Today: filterDataByDay(todayStart),
-    Yesterday: filterDataByDay(yesterdayStart),
-  };
-
-  function findBoundingDocs(docs: any[], targetTime: number) {
-    if (docs.length === 0) return { before: null, after: null };
-
-    let before = null;
-    let after = null;
-
-    let low = 0, high = docs.length - 1;
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      const midTime = docs[mid]._moment.valueOf();
-
-      if (midTime === targetTime) {
-        before = docs[mid];
-        after = docs[mid];
-        break;
-      } else if (midTime < targetTime) {
-        before = docs[mid];
-        low = mid + 1;
-      } else {
-        after = docs[mid];
-        high = mid - 1;
-      }
-    }
-    return { before, after };
-  }
-
-  const hourly: any[] = [];
-
-  for (let h = 0; h < 24; h++) {
-    const hourStr = todayHours[h].format("HH:00");
-
-    let todayTotal = 0;
-    let yesterdayTotal = 0;
-
-    for (const key of this.Compressor1Keys) {
-      const yStart = yesterdayHours[h].valueOf();
-      const yEnd = yesterdayHours[h + 1].valueOf();
-      const tStart = todayHours[h].valueOf();
-      const tEnd = todayHours[h + 1].valueOf();
-
-      const { before: yBeforeStart, after: yAfterStart } = findBoundingDocs(dataByDay.Yesterday, yStart);
-      const { before: yBeforeEnd, after: yAfterEnd } = findBoundingDocs(dataByDay.Yesterday, yEnd);
-
-      const valStartYesterday = interpolateValue(yStart, yBeforeStart, yAfterStart, key);
-      const valEndYesterday = interpolateValue(yEnd, yBeforeEnd, yAfterEnd, key);
-      if (valStartYesterday != null && valEndYesterday != null) {
-        yesterdayTotal += valEndYesterday - valStartYesterday;
-      }
-
-      const { before: tBeforeStart, after: tAfterStart } = findBoundingDocs(dataByDay.Today, tStart);
-      const { before: tBeforeEnd, after: tAfterEnd } = findBoundingDocs(dataByDay.Today, tEnd);
-
-      const valStartToday = interpolateValue(tStart, tBeforeStart, tAfterStart, key);
-      const valEndToday = interpolateValue(tEnd, tBeforeEnd, tAfterEnd, key);
-      if (valStartToday != null && valEndToday != null) {
-        todayTotal += valEndToday - valStartToday;
-      }
-    }
-
-    hourly.push({
-      Time: hourStr,
-      Today: +todayTotal.toFixed(2),
-      Yesterday: +yesterdayTotal.toFixed(2),
-    });
-  }
-
-  return hourly;
-}
 
   async getWeekData() {
-    const collection = await this.getCollection();
+   const collection = this.compressorModel.collection;
+
 
     const now = new Date();
 
@@ -265,7 +262,7 @@ async getTodayData() {
   }
 
   async getYearData() {
-    const collection = await this.getCollection();
+      const collection = this.compressorModel.collection;
   
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -363,8 +360,8 @@ async getTodayData() {
   formatNumber(value: number): string {
     return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  async getMonthData() {
-    const collection = await this.getCollection();
+    async getMonthData() {
+     const collection = this.compressorModel.collection;
 
     const now = new Date();
     const startOfThisMonth = moment().startOf('month').toDate();
@@ -470,3 +467,5 @@ async getTodayData() {
 
   
 }
+
+

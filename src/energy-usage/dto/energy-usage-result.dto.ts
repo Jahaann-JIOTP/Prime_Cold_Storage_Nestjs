@@ -1,4 +1,4 @@
-export interface ConsumptionData {
+export class EnergyUsageResultDto {
   date: string;
   meterId: string;
   consumption: number;

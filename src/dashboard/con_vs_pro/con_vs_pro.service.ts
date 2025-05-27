@@ -1,27 +1,25 @@
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { MongoClient } from 'mongodb';
+// import * as moment from 'moment-timezone';
 import * as moment from 'moment';
+import { PrimeHistoricalDataDocument } from './schemas/prime-historical-data.schema';
+
 
 @Injectable()
 export class ConVsProService {
-  private readonly uri = 'mongodb://admin:cisco123@13.234.241.103:27017/?authSource=iotdb';
-  private readonly dbName = 'iotdb';
-  private client: MongoClient;
+  
 
-  async connect() {
-    if (!this.client) {
-      this.client = new MongoClient(this.uri);
-      await this.client.connect();
-    }
-    return this.client.db(this.dbName);
-  }
-
-
+  constructor(
+    @InjectModel('con_vs_pro') private readonly conModel: Model<PrimeHistoricalDataDocument>,
+  ) {}
 
 
 async getPowerAverages(startDate: string, endDate: string) {
-  const db = await this.connect();
-  const collection = db.collection('prime_historical_data');
+  // const db = await this.connect();
+  // const collection = db.collection('prime_historical_data');
+  const collection = this.conModel.collection;
 
   // Parse input dates as start and end of day in Asia/Karachi timezone,
   // then convert to UTC Date for MongoDB query
@@ -140,8 +138,9 @@ async getPowerAverages(startDate: string, endDate: string) {
 
 
 async getDailyPowerAverages(start: string, end: string) {
-  const db = await this.connect();
-  const collection = db.collection('prime_historical_data');
+  // const db = await this.connect();
+  // const collection = db.collection('prime_historical_data');
+  const collection = this.conModel.collection;
 
   const meterIds = ["U1", "U2", "U3", "U4", "U5"];
   const suffixes: string[] = ['Active_Energy_Total_Consumed'];
@@ -266,8 +265,9 @@ type DailyResult = {
 
 
 async getMonthlyAverages(startDate: string, endDate: string) {
-  const db = await this.connect();
-  const collection = db.collection('prime_historical_data');
+  // const db = await this.connect();
+  // const collection = db.collection('prime_historical_data');
+  const collection = this.conModel.collection;
 
   const startISO = new Date(startDate + 'T00:00:00.000Z');
   const endISO = new Date(endDate + 'T23:59:59.999Z');

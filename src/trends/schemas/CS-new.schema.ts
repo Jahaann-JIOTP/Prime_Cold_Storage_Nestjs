@@ -3,7 +3,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import * as mongoose from 'mongoose';
 
-@Schema()
+@Schema({collection: 'prime_historical_data'})
 export class CSNew extends Document {
   @Prop()
   timestamp: string;

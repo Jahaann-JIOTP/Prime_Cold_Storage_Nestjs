@@ -1,26 +1,18 @@
-// src/solar/solar.service.ts
 import { Injectable } from '@nestjs/common';
-import { MongoClient } from 'mongodb';
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import * as moment from 'moment-timezone';
+import { transformerDocument } from './schemas/transformer.schema';
 import { GettransformerDto } from './dto/get-transformer.dto';
-import * as moment from 'moment';
 
 
 @Injectable()
 export class TransformerService {
-  private readonly client: MongoClient;
-  private readonly dbName = 'iotdb';
-  private readonly collectionName = 'prime_historical_data';
   private readonly transformerKeys = ['U1_Active_Energy_Total_Consumed'];
 
-  constructor() {
-    this.client = new MongoClient('mongodb://admin:cisco123@13.234.241.103:27017/?authSource=iotdb');
-  }
-
-  private async getCollection() {
-    await this.client.connect();
-    const db = this.client.db(this.dbName);
-    return db.collection(this.collectionName);
-  }
+  constructor(
+    @InjectModel('transformer') private readonly transformerModel: Model<transformerDocument>,
+  ) {}
 
 
 
@@ -41,7 +33,7 @@ export class TransformerService {
   }
 
 async getTodayData() {
-  const collection = await this.getCollection();
+  const collection = this.transformerModel.collection;
 
   const now = moment().tz("Asia/Karachi");
 
@@ -178,7 +170,7 @@ async getTodayData() {
 
 
   async getWeekData() {
-    const collection = await this.getCollection();
+   const collection = this.transformerModel.collection;
 
     const now = new Date();
 
@@ -266,7 +258,7 @@ async getTodayData() {
   }
 
   async getYearData() {
-    const collection = await this.getCollection();
+   const collection = this.transformerModel.collection;
   
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -365,7 +357,7 @@ async getTodayData() {
     return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   async getMonthData() {
-    const collection = await this.getCollection();
+   const collection = this.transformerModel.collection;
 
     const now = new Date();
     const startOfThisMonth = moment().startOf('month').toDate();

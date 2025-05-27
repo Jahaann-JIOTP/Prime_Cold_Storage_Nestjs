@@ -84,7 +84,7 @@ import { NodeRedLinkModule } from './node_red_link/node_red_link.module';
    
     
   ],
-  controllers: [AppController, SolarController, ConVsProController, DiagramController],
-  providers: [AppService, SolarService, ConVsProService, DiagramService],
+  controllers: [AppController, DiagramController],
+  providers: [AppService,  DiagramService],
 })
 export class AppModule {}
