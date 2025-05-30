@@ -14,14 +14,14 @@ export class CompressorRuntimeService {
   private calculateSeconds(start?: string, end?: string): number {
     if (!start || !end) return 0;
 
-    const startTime = moment.tz(start, 'Asia/Karachi').toDate().getTime();
-    const endTime = moment.tz(end, 'Asia/Karachi').toDate().getTime();
+    const startTime = moment.tz(start, 'Asia/Karachi').valueOf();
+    const endTime = moment.tz(end, 'Asia/Karachi').valueOf();
     return Math.max(0, Math.floor((endTime - startTime) / 1000));
   }
 
   async getDailyTotalSeconds(startDate: string, endDate: string) {
-    const start = moment.tz(startDate, 'Asia/Karachi').startOf('day').toDate();
-    const end = moment.tz(endDate, 'Asia/Karachi').endOf('day').toDate();
+    const start = moment.tz(startDate, 'Asia/Karachi').startOf('day');
+    const end = moment.tz(endDate, 'Asia/Karachi').endOf('day');
 
     const records = await this.compressorModel.find({
       $or: [
@@ -29,7 +29,7 @@ export class CompressorRuntimeService {
         { U3_On_Time: { $gte: start.toISOString(), $lte: end.toISOString() } },
         { U4_On_Time: { $gte: start.toISOString(), $lte: end.toISOString() } },
       ],
-    }).exec();
+    }).lean().exec(); // use lean for better performance if no virtuals or hooks needed
 
     const result: Record<string, { U5_total_seconds: number; U3_total_seconds: number; U4_total_seconds: number }> = {};
 
@@ -54,9 +54,7 @@ export class CompressorRuntimeService {
         }
 
         const seconds = this.calculateSeconds(on, off);
-        if (type === 'U5') result[dateKey].U5_total_seconds += seconds;
-        if (type === 'U3') result[dateKey].U3_total_seconds += seconds;
-        if (type === 'U4') result[dateKey].U4_total_seconds += seconds;
+        result[dateKey][`${type}_total_seconds`] += seconds;
       }
     }
 
