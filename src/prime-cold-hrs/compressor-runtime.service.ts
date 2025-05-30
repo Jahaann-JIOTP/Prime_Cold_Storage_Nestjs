@@ -11,56 +11,64 @@ export class CompressorRuntimeService {
     private readonly compressorModel: Model<CompressorRuntimeDocument>,
   ) {}
 
+  // Calculate seconds difference between two ISO timestamps in Asia/Karachi timezone
   private calculateSeconds(start?: string, end?: string): number {
     if (!start || !end) return 0;
 
     const startTime = moment.tz(start, 'Asia/Karachi').valueOf();
     const endTime = moment.tz(end, 'Asia/Karachi').valueOf();
+
     return Math.max(0, Math.floor((endTime - startTime) / 1000));
   }
 
+  // Fetch compressor runtimes between startDate and endDate and sum runtimes per day per compressor
   async getDailyTotalSeconds(startDate: string, endDate: string) {
-    const start = moment.tz(startDate, 'Asia/Karachi').startOf('day');
-    const end = moment.tz(endDate, 'Asia/Karachi').endOf('day');
+    // Keep timezone offset intact — do NOT use toISOString()
+    const start = moment.tz(startDate, 'Asia/Karachi').startOf('day').format();
+    const end = moment.tz(endDate, 'Asia/Karachi').endOf('day').format();
 
-    const records = await this.compressorModel.find({
-      $or: [
-        { U5_On_Time: { $gte: start.toISOString(), $lte: end.toISOString() } },
-        { U3_On_Time: { $gte: start.toISOString(), $lte: end.toISOString() } },
-        { U4_On_Time: { $gte: start.toISOString(), $lte: end.toISOString() } },
-      ],
-    }).lean().exec(); // use lean for better performance if no virtuals or hooks needed
+    // Find records with On_Time in the range
+    const records = await this.compressorModel
+      .find({
+        $or: [
+          { U5_On_Time: { $gte: start, $lte: end } },
+          { U3_On_Time: { $gte: start, $lte: end } },
+          { U4_On_Time: { $gte: start, $lte: end } },
+        ],
+      })
+      .lean()
+      .exec();
 
     const result: Record<string, { U5_total_seconds: number; U3_total_seconds: number; U4_total_seconds: number }> = {};
 
     for (const doc of records) {
-      const timePairs = [
-        { type: 'U5', on: doc.U5_On_Time, off: doc.U5_Off_Time },
-        { type: 'U3', on: doc.U3_On_Time, off: doc.U3_Off_Time },
-        { type: 'U4', on: doc.U4_On_Time, off: doc.U4_Off_Time },
+      const compressors = [
+        { key: 'U5', on: doc.U5_On_Time, off: doc.U5_Off_Time },
+        { key: 'U3', on: doc.U3_On_Time, off: doc.U3_Off_Time },
+        { key: 'U4', on: doc.U4_On_Time, off: doc.U4_Off_Time },
       ];
 
-      for (const { type, on, off } of timePairs) {
+      for (const { key, on, off } of compressors) {
         if (!on || !off) continue;
 
+        // Get date key in Asia/Karachi timezone (YYYY-MM-DD)
         const dateKey = moment.tz(on, 'Asia/Karachi').format('YYYY-MM-DD');
 
         if (!result[dateKey]) {
-          result[dateKey] = {
-            U5_total_seconds: 0,
-            U3_total_seconds: 0,
-            U4_total_seconds: 0,
-          };
+          result[dateKey] = { U5_total_seconds: 0, U3_total_seconds: 0, U4_total_seconds: 0 };
         }
 
-        const seconds = this.calculateSeconds(on, off);
-        result[dateKey][`${type}_total_seconds`] += seconds;
+        result[dateKey][`${key}_total_seconds`] += this.calculateSeconds(on, off);
       }
     }
 
-    return Object.entries(result).map(([date, totals]) => ({
-      date,
-      ...totals,
-    }));
+    // Filter result by requested date range (inclusive)
+    const filtered = Object.entries(result).filter(([date]) => {
+      const dt = moment.tz(date, 'Asia/Karachi');
+      return dt.isBetween(startDate, endDate, 'day', '[]'); // inclusive range
+    });
+
+    // Return formatted array
+    return filtered.map(([date, totals]) => ({ date, ...totals }));
   }
 }
