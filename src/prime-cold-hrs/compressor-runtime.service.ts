@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import * as moment from 'moment-timezone'; // <-- updated import
+import * as moment from 'moment-timezone';
 import { CompressorRuntime, CompressorRuntimeDocument } from './schema/compressor-runtime.schema';
-
-moment.tz.setDefault('Asia/Karachi'); // <-- set default timezone
 
 @Injectable()
 export class CompressorRuntimeService {
@@ -15,6 +13,7 @@ export class CompressorRuntimeService {
 
   private calculateSeconds(start?: string, end?: string): number {
     if (!start || !end) return 0;
+
     const startTime = moment.tz(start, 'Asia/Karachi').toDate().getTime();
     const endTime = moment.tz(end, 'Asia/Karachi').toDate().getTime();
     return Math.max(0, Math.floor((endTime - startTime) / 1000));
@@ -32,7 +31,7 @@ export class CompressorRuntimeService {
       ],
     }).exec();
 
-    const result: Record<string, { U5TotalSeconds: number; U3TotalSeconds: number; U4TotalSeconds: number }> = {};
+    const result: Record<string, { U5_total_seconds: number; U3_total_seconds: number; U4_total_seconds: number }> = {};
 
     for (const doc of records) {
       const timePairs = [
@@ -47,21 +46,23 @@ export class CompressorRuntimeService {
         const dateKey = moment.tz(on, 'Asia/Karachi').format('YYYY-MM-DD');
 
         if (!result[dateKey]) {
-          result[dateKey] = { U5TotalSeconds: 0, U3TotalSeconds: 0, U4TotalSeconds: 0 };
+          result[dateKey] = {
+            U5_total_seconds: 0,
+            U3_total_seconds: 0,
+            U4_total_seconds: 0,
+          };
         }
 
         const seconds = this.calculateSeconds(on, off);
-        if (type === 'U5') result[dateKey].U5TotalSeconds += seconds;
-        if (type === 'U3') result[dateKey].U3TotalSeconds += seconds;
-        if (type === 'U4') result[dateKey].U4TotalSeconds += seconds;
+        if (type === 'U5') result[dateKey].U5_total_seconds += seconds;
+        if (type === 'U3') result[dateKey].U3_total_seconds += seconds;
+        if (type === 'U4') result[dateKey].U4_total_seconds += seconds;
       }
     }
 
     return Object.entries(result).map(([date, totals]) => ({
       date,
-      U5_total_seconds: totals.U5TotalSeconds,
-      U3_total_seconds: totals.U3TotalSeconds,
-      U4_total_seconds: totals.U4TotalSeconds,
+      ...totals,
     }));
   }
 }
