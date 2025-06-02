@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { EnergyUsage } from './schemas/energy-usage.schema';
 import { EnergyUsageDto } from './dto/energy-usage.dto';
+import * as moment from 'moment-timezone';
 
 @Injectable()
 export class EnergyUsageService {
@@ -11,19 +12,23 @@ export class EnergyUsageService {
   ) {}
 
   async getEnergyUsage(dto: EnergyUsageDto): Promise<any[]> {
-    const { start_date, end_date, meterIds, suffixes } = dto;
+    const { start_date, end_date, start_time, end_time, meterIds, suffixes } = dto;
     const suffixArray = suffixes || [];
 
-    const start = new Date(start_date);
-    const end = new Date(end_date);
-    end.setDate(end.getDate() + 1);
+    // Default time range for the day
+    const defaultStartTime = start_time || '00:00:00.000';
+    const defaultEndTime = end_time || '23:59:59.999';
 
     const results: any[] = [];
 
-    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split('T')[0];
-      const startOfDay = `${dateStr}T00:00:00.000+05:00`;
-      const endOfDay = `${dateStr}T23:59:59.999+05:00`;
+    const current = moment.tz(`${start_date} ${defaultStartTime}`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi');
+    const endDateMoment = moment.tz(`${end_date} ${defaultEndTime}`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi');
+
+    while (current.isSameOrBefore(endDateMoment, 'day')) {
+      const dateStr = current.format('YYYY-MM-DD');
+
+      const startOfDay = moment.tz(`${dateStr} ${defaultStartTime}`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi').toISOString(true);
+      const endOfDay = moment.tz(`${dateStr} ${defaultEndTime}`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi').toISOString(true);
 
       for (let i = 0; i < meterIds.length; i++) {
         const meterId = meterIds[i];
@@ -31,7 +36,6 @@ export class EnergyUsageService {
         let suffix = '';
         if (meterId === 'U2') {
           suffix = 'Active_Energy_Total';
-
           if (!suffixArray.includes('Active_Energy_Total')) {
             continue;
           }
@@ -40,36 +44,42 @@ export class EnergyUsageService {
         }
 
         const key = `${meterId}_${suffix}`;
+        const projection = { [key]: 1, timestamp: 1 };
 
         const firstDoc = await this.usageModel.findOne(
           { timestamp: { $gte: startOfDay, $lte: endOfDay } },
-          { [key]: 1, timestamp: 1 },
-        ).sort({ timestamp: 1 }).exec();
+          projection,
+        ).sort({ timestamp: 1 }).lean();
 
         const lastDoc = await this.usageModel.findOne(
           { timestamp: { $gte: startOfDay, $lte: endOfDay } },
-          { [key]: 1, timestamp: 1 },
-        ).sort({ timestamp: -1 }).exec();
+          projection,
+        ).sort({ timestamp: -1 }).lean();
 
         if (
           firstDoc &&
           lastDoc &&
-          firstDoc.get(key) !== undefined &&
-          lastDoc.get(key) !== undefined
+          firstDoc.hasOwnProperty(key) &&
+          lastDoc.hasOwnProperty(key)
         ) {
-          const startVal = firstDoc.get(key);
-          const endVal = lastDoc.get(key);
+          const startVal = firstDoc[key];
+          const endVal = lastDoc[key];
           const consumption = endVal - startVal;
 
           results.push({
-            date: dateStr,
+            // date: dateStr,
             meterId,
             consumption,
             startValue: startVal,
             endValue: endVal,
+            startTimestamp: firstDoc.timestamp,
+            endTimestamp: lastDoc.timestamp,
           });
         }
       }
+
+      // Move to next day
+      current.add(1, 'day');
     }
 
     return results;

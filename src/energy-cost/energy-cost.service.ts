@@ -3,86 +3,94 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { GetEnergyCostDto } from './dto/get-energy-cost.dto';
 import { EnergyCost } from './schemas/energy-cost.schema';
-
+  import * as moment from 'moment-timezone';
 @Injectable()
 export class EnergyCostService {
   constructor(
     @InjectModel(EnergyCost.name) private costModel: Model<EnergyCost>,
   ) {}
 
-  async getConsumptionData(dto: GetEnergyCostDto) {
-    const { start_date, end_date, meterIds, suffixes } = dto;
-
- const suffixArray = suffixes || [];
 
 
+async getConsumptionData(dto: GetEnergyCostDto) {
+  const { start_date, start_time, end_date, end_time, meterIds, suffixes } = dto;
 
-    const startOfRange = `${start_date}T00:00:00.000+05:00`;
-    const endOfRange = `${end_date}T23:59:59.999+05:00`;
+  const suffixArray = suffixes || [];
 
-    const result: {
-      meterId: string;
-      startValue: number;
-      endValue: number;
-      consumption: number;
-    }[] = [];
+  // Default time values if not provided
+  const startTime = start_time || '00:00:00.000';
+  const endTime = end_time || '23:59:59.999';
 
-    for (let i = 0; i < meterIds.length; i++) {
-      const meterId = meterIds[i];
+  // Build full ISO timestamps in Asia/Karachi timezone
+  const startOfRange = moment.tz(`${start_date} ${startTime}`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi').toISOString(true);
+  const endOfRange = moment.tz(`${end_date} ${endTime}`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi').toISOString(true);
 
-      // 📌 Step 1: Determine the suffix
-      let suffix = '';
-      if (meterId === 'U2') {
-        suffix = 'Active_Energy_Total';
+  const result: {
+    meterId: string;
+    startValue: number;
+    endValue: number;
+    consumption: number;
+    startTimestamp: string;
+    endTimestamp: string;
+  }[] = [];
 
-        // ❌ If suffix list does NOT include required suffix for U2, skip it
-        if (!suffixArray.includes('Active_Energy_Total')) {
-          continue;
-        }
-      } else {
-        // All other meters use given suffix (by position or default to first)
-        suffix = suffixArray[i] || suffixArray[0];
-      }
+  for (let i = 0; i < meterIds.length; i++) {
+    const meterId = meterIds[i];
 
-      const key = `${meterId}_${suffix}`;
-      const projection = { [key]: 1, timestamp: 1 };
+    let suffix = '';
+    if (meterId === 'U2') {
+      suffix = 'Active_Energy_Total';
 
-      // 📌 Step 2: Get first document in time range
-      const firstDoc = await this.costModel
-        .findOne({ timestamp: { $gte: startOfRange, $lte: endOfRange } })
-        .select(projection)
-        .sort({ timestamp: 1 })
-        .lean();
-
-      // 📌 Step 3: Get last document in time range
-      const lastDoc = await this.costModel
-        .findOne({ timestamp: { $gte: startOfRange, $lte: endOfRange } })
-        .select(projection)
-        .sort({ timestamp: -1 })
-        .lean();
-
-      // 📌 Step 4: Skip if data is missing
-      if (
-        !firstDoc ||
-        !lastDoc ||
-        !firstDoc.hasOwnProperty(key) ||
-        !lastDoc.hasOwnProperty(key)
-      ) {
+      // Skip if suffix array does NOT include 'Active_Energy_Total'
+      if (!suffixArray.includes('Active_Energy_Total')) {
         continue;
       }
-
-      const startValue = firstDoc[key];
-      const endValue = lastDoc[key];
-      const consumption = endValue - startValue;
-
-      result.push({
-        meterId,
-        startValue,
-        endValue,
-        consumption,
-      });
+    } else {
+      // For other meters, take suffix by index or fallback to first suffix
+      suffix = suffixArray[i] || suffixArray[0];
     }
 
-    return result;
+    const key = `${meterId}_${suffix}`;
+    const projection = { [key]: 1, timestamp: 1 };
+
+    // Find earliest record in time range
+    const firstDoc = await this.costModel
+      .findOne({ timestamp: { $gte: startOfRange, $lte: endOfRange } })
+      .select(projection)
+      .sort({ timestamp: 1 })
+      .lean();
+
+    // Find latest record in time range
+    const lastDoc = await this.costModel
+      .findOne({ timestamp: { $gte: startOfRange, $lte: endOfRange } })
+      .select(projection)
+      .sort({ timestamp: -1 })
+      .lean();
+
+    if (
+      !firstDoc ||
+      !lastDoc ||
+      !firstDoc.hasOwnProperty(key) ||
+      !lastDoc.hasOwnProperty(key)
+    ) {
+      continue;
+    }
+
+    const startValue = firstDoc[key];
+    const endValue = lastDoc[key];
+    const consumption = endValue - startValue;
+
+    result.push({
+      meterId,
+      startValue,
+      endValue,
+      consumption,
+      startTimestamp: firstDoc.timestamp,
+      endTimestamp: lastDoc.timestamp,
+    });
   }
+
+  return result;
+}
+
 }

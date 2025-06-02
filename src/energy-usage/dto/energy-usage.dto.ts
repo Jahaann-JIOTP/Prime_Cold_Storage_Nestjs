@@ -7,11 +7,19 @@ export class EnergyUsageDto {
   @IsDateString()
   end_date: string;
 
+  @IsOptional()
+  @IsString()
+  start_time?: string; // e.g., "00:00" or "13:30"
+
+  @IsOptional()
+  @IsString()
+  end_time?: string; // e.g., "23:59:59.999"
+
   @IsArray()
   meterIds: string[];
 
-  @IsOptional()  // optional if sometimes suffixes is not provided
+  @IsOptional()
   @IsArray()
-  @IsString({ each: true })  // validate each element of suffixes is a string
+  @IsString({ each: true })
   suffixes?: string[];
 }
