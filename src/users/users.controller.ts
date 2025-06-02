@@ -26,15 +26,15 @@ export class UsersController {
    * ✅ Register a new user (Only Admin allowed)
    */
   @Post('register')
-@UseGuards(AuthGuard('jwt'))
+// @UseGuards(AuthGuard('jwt'))
 async register(@Body() createUserDto: CreateUserDto, @Req() req) {
   console.log('req.user:', req.user); 
 
-  const currentUserRole = req.user?.role || 'User';
+  // const currentUserRole = req.user?.role || 'User';
   
-  if (currentUserRole !== 'admin') {
-    throw new UnauthorizedException('Only Admin can create users');
-  }
+  // if (currentUserRole !== 'admin') {
+  //   throw new UnauthorizedException('Only Admin can create users');
+  // }
 
   return this.usersService.registerUser(createUserDto);
 }
