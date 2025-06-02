@@ -9,16 +9,19 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User } from './schemas/user.schema';
+import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcryptjs';
+import { Privilege, PrivilegeDocument } from '../privileges/schemas/privilege.schema';
+import { Role, RoleDocument } from '../role/schemas/role.schema';
+// import { User, UserDocument } from '../users/schemas/user.schema';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel(User.name, 'prime_cold') 
-    private readonly userModel: Model<User>,
+    @InjectModel(User.name, 'prime_cold') private userModel: Model<UserDocument>,
+    @InjectModel(Role.name, 'prime_cold') private roleModel: Model<RoleDocument>,
   ) {}
 
   /**
@@ -109,11 +112,46 @@ export class UsersService {
   /**
    * ✅ Get single user by ID (for profile)
    */
-  async getUserById(id: string): Promise<User> {
-    const user = await this.userModel.findById(id).populate('role').exec();
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    return user;
+// async getUserById(id: string): Promise<User> {
+//   const user = await this.userModel.findById(id)
+//     .populate({
+//       path: 'role',
+//       select: '_id name privileges',  // select role fields
+//       populate: {
+//         path: 'privileges',
+//         model: 'Privilege',
+//         select: '_id name',             // select privilege fields
+//       },
+//     })
+//     .exec();
+
+//   if (!user) {
+//     throw new NotFoundException('User not found');
+//   }
+
+//   return user;
+// }
+
+async getUserById(id: string): Promise<any> {
+  const user = await this.userModel.findById(id).exec();
+  if (!user) {
+    throw new NotFoundException('User not found');
   }
+
+  const role = await this.roleModel.findOne({ name: user.role })
+    .populate({
+      path: 'privileges',
+      select: '_id name',
+    })
+    .exec();
+
+  return {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    password: user.password,
+    role: role || null,
+  };
+}
+
 }
