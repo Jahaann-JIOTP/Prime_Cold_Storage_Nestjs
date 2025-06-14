@@ -143,7 +143,7 @@ async getDailyPowerAverages(start: string, end: string) {
   const collection = this.conModel.collection;
 
   const meterIds = ["U1", "U2", "U3", "U4", "U5"];
-  const suffixes: string[] = ['Active_Energy_Total_Consumed'];
+  const suffixes: string[] = ['Active_Energy_Total_Consumed', 'Active_Energy_Total'];
 
   const solarKeys = ['U2_Active_Energy_Total'];
   const WapdaKeys = ['U1_Active_Energy_Total_Consumed'];
