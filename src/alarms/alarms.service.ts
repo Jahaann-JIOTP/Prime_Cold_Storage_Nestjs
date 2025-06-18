@@ -26,158 +26,36 @@ export class AlarmsService {
   ) {}
 
   async checkAlarms() {
-    const url = 'http://13.234.241.103:1880/prime_cold';
-    let url_data: Record<string, number>;
+  const url = 'http://13.234.241.103:1880/prime_cold';
+  let url_data: Record<string, number>;
 
-    try {
-      const response = await axios.get(url);
-      url_data = response.data;
+  try {
+    const response = await axios.get(url);
 
-      const units = ['U1', 'U2', 'U3', 'U4', 'U5'];
-      for (const unit of units) {
-        const v1 = Number(url_data[`${unit}_Voltage_L1L2`] || 0);
-        const v2 = Number(url_data[`${unit}_Voltage_L2L3`] || 0);
-        const v3 = Number(url_data[`${unit}_Voltage_L3L1`] || 0);
-
-        url_data[`${unit}_Voltage_AVG`] = (v1 > 0 && v2 > 0 && v3 > 0)
-          ? Number(((v1 + v2 + v3) / 3).toFixed(2))
-          : 0;
-      }
-
-      console.log('✅ URL Data with Voltage_AVG:', url_data);
-    } catch (error) {
-      console.error('❌ Failed to fetch data from URL:', error.message);
-      return [];
+    // Check for valid response
+    if (!response.data || typeof response.data !== 'object') {
+      throw new Error('Invalid data structure from URL');
     }
 
-    const meters = await this.meterModel.find();
+    url_data = response.data;
 
-    const alarmConditions = {
-      'Low Voltage': (db: number, urlValue: number) => urlValue <= db,
-      'High Voltage': (db: number, urlValue: number) => urlValue >= db,
-      'High Current': (db: number, urlValue: number) => urlValue >= db,
-    };
+    const units = ['U1', 'U2', 'U3', 'U4', 'U5'];
+    for (const unit of units) {
+      const v1 = Number(url_data[`${unit}_Voltage_L1L2`] || 0);
+      const v2 = Number(url_data[`${unit}_Voltage_L2L3`] || 0);
+      const v3 = Number(url_data[`${unit}_Voltage_L3L1`] || 0);
 
-    const mapping = {
-      'Solar1 Low Voltage': 'U2_Voltage_AVG',
-      'Solar1 High Voltage': 'U2_Voltage_AVG',
-      'Solar1 High Current': 'U2_Current_AVG',
-      'Wapda Low Voltage': 'U1_Voltage_AVG',
-      'Wapda High Voltage': 'U1_Voltage_AVG',
-      'Wapda High Current': 'U1_Current_AVG',
-      'Compressor1 Low Voltage': 'U3_Voltage_AVG',
-      'Compressor1 High Voltage': 'U3_Voltage_AVG',
-      'Compressor1 High Current': 'U3_Current_AVG',
-      'Compressor2 Low Voltage': 'U4_Voltage_AVG',
-      'Compressor2 High Voltage': 'U4_Voltage_AVG',
-      'Compressor2 High Current': 'U4_Current_AVG',
-      'Compressor3 Low Voltage': 'U5_Voltage_AVG',
-      'Compressor3 High Voltage': 'U5_Voltage_AVG',
-      'Compressor3 High Current': 'U5_Current_AVG',
-    };
-
-    const now = moment().tz('Asia/Karachi');
-    const todayStart = now.clone().startOf('day').toDate();
-    const todayEnd = now.clone().endOf('day').toDate();
-
-    for (const meter of meters) {
-      const key = `${meter.Source} ${meter.Status}`;
-      const urlKey = mapping[key];
-
-      if (!urlKey || !(urlKey in url_data)) {
-        console.warn(`⚠️ No data for key: ${key} -> ${urlKey}`);
-        continue;
-      }
-
-      const urlValue = Number(url_data[urlKey]);
-      const dbValue = Number(meter.Value);
-
-      if (isNaN(urlValue) || isNaN(dbValue)) {
-        console.warn(`⚠️ Invalid numbers - url: ${urlValue}, db: ${dbValue}`);
-        continue;
-      }
-
-      if (urlValue <= 10) {
-        console.log(`🚫 Skipping alarm for ${key} because urlValue (${urlValue}) ≤ 10`);
-        continue;
-      }
-
-      const isMet = alarmConditions[meter.Status]?.(dbValue, urlValue);
-
-      const todayAlarm = await this.alarmModel.findOne({
-        Source: meter.Source,
-        Status: meter.Status,
-        Time: { $gte: todayStart, $lte: todayEnd },
-      });
-
-      if (isMet) {
-        if (!todayAlarm) {
-          const newAlarmData = {
-            Source: meter.Source,
-            Status: meter.Status,
-            Time: now.toDate(),
-            db_value: dbValue,
-            url_value: urlValue,
-            status1: meter.Status,
-            alarm_count: 1,
-            current_time: now.toDate(),
-            end_time: null,
-          };
-
-          const newAlarm = new this.alarmModel(newAlarmData);
-          await newAlarm.save();
-
-          const newBell = new this.bellModel(newAlarmData);
-          await newBell.save();
-
-          console.log('✅ New alarm inserted (and saved to bells)');
-        } else if (todayAlarm.end_time !== null) {
-          const updateData = {
-            $set: {
-              db_value: dbValue,
-              url_value: urlValue,
-              current_time: now.toDate(),
-              end_time: null,
-            },
-            $inc: { alarm_count: 1 },
-          };
-
-          await this.alarmModel.updateOne({ _id: todayAlarm._id }, updateData);
-          await this.bellModel.updateOne(
-            { Source: meter.Source, Status: meter.Status, Time: todayAlarm.Time },
-            updateData,
-            { upsert: true }
-          );
-
-          console.log('🔁 Reactivated existing alarm (and updated bells)');
-        } else {
-          console.log('⏸️ Alarm already active');
-        }
-      } else {
-        if (todayAlarm && todayAlarm.end_time === null) {
-          const resolveData = {
-            $set: {
-              end_time: now.toDate(),
-              db_value: dbValue,
-              url_value: urlValue,
-            },
-          };
-
-          await this.alarmModel.updateOne({ _id: todayAlarm._id }, resolveData);
-          await this.bellModel.updateOne(
-            { Source: meter.Source, Status: meter.Status, Time: todayAlarm.Time },
-            resolveData
-          );
-
-          console.log('🔕 Alarm resolved (and bells updated)');
-        } else {
-          console.log('✅ No alarm to end');
-        }
-      }
+      url_data[`${unit}_Voltage_AVG`] = (v1 > 0 && v2 > 0 && v3 > 0)
+        ? Number(((v1 + v2 + v3) / 3).toFixed(2))
+        : 0;
     }
 
+    console.log('✅ URL Data with Voltage_AVG:', url_data);
+  } catch (error) {
+    console.error('❌ Failed to fetch data from URL:', error.message);
+
+    // Even if fetch fails, return all alarms from DB
     const alarms = await this.alarmModel.find().sort({ Time: -1 });
-
     return alarms.map(alarm => ({
       _id: alarm._id,
       Source: alarm.Source,
@@ -193,6 +71,152 @@ export class AlarmsService {
         : null,
     }));
   }
+
+  const meters = await this.meterModel.find();
+
+  const alarmConditions = {
+    'Low Voltage': (db: number, urlValue: number) => urlValue <= db,
+    'High Voltage': (db: number, urlValue: number) => urlValue >= db,
+    'High Current': (db: number, urlValue: number) => urlValue >= db,
+  };
+
+  const mapping = {
+    'Solar1 Low Voltage': 'U2_Voltage_AVG',
+    'Solar1 High Voltage': 'U2_Voltage_AVG',
+    'Solar1 High Current': 'U2_Current_AVG',
+    'Wapda Low Voltage': 'U1_Voltage_AVG',
+    'Wapda High Voltage': 'U1_Voltage_AVG',
+    'Wapda High Current': 'U1_Current_AVG',
+    'Compressor1 Low Voltage': 'U3_Voltage_AVG',
+    'Compressor1 High Voltage': 'U3_Voltage_AVG',
+    'Compressor1 High Current': 'U3_Current_AVG',
+    'Compressor2 Low Voltage': 'U4_Voltage_AVG',
+    'Compressor2 High Voltage': 'U4_Voltage_AVG',
+    'Compressor2 High Current': 'U4_Current_AVG',
+    'Compressor3 Low Voltage': 'U5_Voltage_AVG',
+    'Compressor3 High Voltage': 'U5_Voltage_AVG',
+    'Compressor3 High Current': 'U5_Current_AVG',
+  };
+
+  const now = moment().tz('Asia/Karachi');
+  const todayStart = now.clone().startOf('day').toDate();
+  const todayEnd = now.clone().endOf('day').toDate();
+
+  for (const meter of meters) {
+    const key = `${meter.Source} ${meter.Status}`;
+    const urlKey = mapping[key];
+
+    if (!urlKey || !(urlKey in url_data)) {
+      console.warn(`⚠️ No data for key: ${key} -> ${urlKey}`);
+      continue;
+    }
+
+    const urlValue = Number(url_data[urlKey]);
+    const dbValue = Number(meter.Value);
+
+    if (isNaN(urlValue) || isNaN(dbValue)) {
+      console.warn(`⚠️ Invalid numbers - url: ${urlValue}, db: ${dbValue}`);
+      continue;
+    }
+
+    if (urlValue <= 10) {
+      console.log(`🚫 Skipping alarm for ${key} because urlValue (${urlValue}) ≤ 10`);
+      continue;
+    }
+
+    const isMet = alarmConditions[meter.Status]?.(dbValue, urlValue);
+
+    const todayAlarm = await this.alarmModel.findOne({
+      Source: meter.Source,
+      Status: meter.Status,
+      Time: { $gte: todayStart, $lte: todayEnd },
+    });
+
+    if (isMet) {
+      if (!todayAlarm) {
+        const newAlarmData = {
+          Source: meter.Source,
+          Status: meter.Status,
+          Time: now.toDate(),
+          db_value: dbValue,
+          url_value: urlValue,
+          status1: meter.Status,
+          alarm_count: 1,
+          current_time: now.toDate(),
+          end_time: null,
+        };
+
+        const newAlarm = new this.alarmModel(newAlarmData);
+        await newAlarm.save();
+
+        const newBell = new this.bellModel(newAlarmData);
+        await newBell.save();
+
+        console.log('✅ New alarm inserted (and saved to bells)');
+      } else if (todayAlarm.end_time !== null) {
+        const updateData = {
+          $set: {
+            db_value: dbValue,
+            url_value: urlValue,
+            current_time: now.toDate(),
+            end_time: null,
+          },
+          $inc: { alarm_count: 1 },
+        };
+
+        await this.alarmModel.updateOne({ _id: todayAlarm._id }, updateData);
+        await this.bellModel.updateOne(
+          { Source: meter.Source, Status: meter.Status, Time: todayAlarm.Time },
+          updateData,
+          { upsert: true }
+        );
+
+        console.log('🔁 Reactivated existing alarm (and updated bells)');
+      } else {
+        console.log('⏸️ Alarm already active');
+      }
+    } else {
+      if (todayAlarm && todayAlarm.end_time === null) {
+        const resolveData = {
+          $set: {
+            end_time: now.toDate(),
+            db_value: dbValue,
+            url_value: urlValue,
+          },
+        };
+
+        await this.alarmModel.updateOne({ _id: todayAlarm._id }, resolveData);
+        await this.bellModel.updateOne(
+          { Source: meter.Source, Status: meter.Status, Time: todayAlarm.Time },
+          resolveData
+        );
+
+        console.log('🔕 Alarm resolved (and bells updated)');
+      } else {
+        console.log('✅ No alarm to end');
+      }
+    }
+  }
+
+  // ✅ Return all alarms (latest first)
+  const alarms = await this.alarmModel.find().sort({ Time: -1 });
+
+  return alarms.map(alarm => ({
+    _id: alarm._id,
+    Source: alarm.Source,
+    status1: alarm.status1,
+    current_time: alarm.current_time
+      ? moment(alarm.current_time).tz('Asia/Karachi').format('YYYY-MM-DD hh:mm:ss A')
+      : null,
+    db_value: alarm.db_value,
+    url_value: alarm.url_value,
+    alarm_count: alarm.alarm_count,
+    end_time: alarm.end_time
+      ? moment(alarm.end_time).tz('Asia/Karachi').format('YYYY-MM-DD hh:mm:ss A')
+      : null,
+  }));
+}
+
 
 
 
@@ -308,7 +332,7 @@ export class AlarmsService {
   let startDate: Date;
   let endDate: Date;
 
-  // ✅ Set start and end dates based on filter
+  // ✅ Set start and end dates using 'Time' (most reliable field)
   switch (filter.toLowerCase()) {
     case 'today':
       startDate = moment().tz('Asia/Karachi').startOf('day').toDate();
@@ -316,37 +340,31 @@ export class AlarmsService {
       break;
     case 'last7days':
       startDate = moment().tz('Asia/Karachi').subtract(7, 'days').startOf('day').toDate();
-      endDate = moment().tz('Asia/Karachi').subtract(1, 'days').endOf('day').toDate();
+      endDate = moment().tz('Asia/Karachi').endOf('day').toDate(); // 🛠 include today
       break;
     case 'last15days':
       startDate = moment().tz('Asia/Karachi').subtract(15, 'days').startOf('day').toDate();
-      endDate = moment().tz('Asia/Karachi').subtract(1, 'days').endOf('day').toDate();
+      endDate = moment().tz('Asia/Karachi').endOf('day').toDate();
       break;
     case 'last30days':
       startDate = moment().tz('Asia/Karachi').subtract(30, 'days').startOf('day').toDate();
-      endDate = moment().tz('Asia/Karachi').subtract(1, 'days').endOf('day').toDate();
+      endDate = moment().tz('Asia/Karachi').endOf('day').toDate();
       break;
     default:
       throw new Error("Invalid filter provided.");
   }
 
-  // ✅ Query alarms using Date type comparison
+  // ✅ Use Time field for filtering
   const alarms = await this.alarmModel.find({
-    current_time: { $gte: startDate, $lte: endDate }
-  }).sort({ current_time: -1 });
+    Time: { $gte: startDate, $lte: endDate }
+  }).sort({ Time: -1 });
 
-  const uniqueAlarms = alarms.filter((value, index, self) =>
-    index === self.findIndex((t) =>
-      t.Source === value.Source && t.Status === value.Status
-    )
-  );
-
-  const formattedAlarms = uniqueAlarms.map(alarm => {
+  const formattedAlarms = alarms.map(alarm => {
     let durationFormatted: string | null = null;
 
     if (alarm.end_time) {
       const endTime = moment(alarm.end_time).tz('Asia/Karachi');
-      const startTime = moment(alarm.current_time).tz('Asia/Karachi');
+      const startTime = moment(alarm.current_time || alarm.Time).tz('Asia/Karachi');
       const duration = moment.duration(endTime.diff(startTime));
 
       const hours = Math.floor(duration.asHours());
@@ -364,41 +382,41 @@ export class AlarmsService {
     return {
       Source: alarm.Source || 'Unknown',
       Status: alarm.Status || 'Unknown',
-      start_time: moment(alarm.current_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss'),
+      start_time: moment(alarm.current_time || alarm.Time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss'),
       end_time: alarm.end_time ? moment(alarm.end_time).tz('Asia/Karachi').format('YYYY-MM-DD HH:mm:ss') : null,
       duration: durationFormatted || 'Ongoing',
     };
   });
 
+  // ✅ Save to recentAlarmModel if not already there
   if (formattedAlarms.length > 0) {
     try {
       const existingAlarms = await this.recentAlarmModel.find({
-        Source: { $in: formattedAlarms.map(alarm => alarm.Source) },
-        Status: { $in: formattedAlarms.map(alarm => alarm.Status) },
-        start_time: { $in: formattedAlarms.map(alarm => alarm.start_time) },
+        Source: { $in: formattedAlarms.map(a => a.Source) },
+        Status: { $in: formattedAlarms.map(a => a.Status) },
+        start_time: { $in: formattedAlarms.map(a => a.start_time) },
       });
 
-      const newAlarms = formattedAlarms.filter(alarm =>
-        !existingAlarms.some(existingAlarm =>
-          existingAlarm.Source === alarm.Source &&
-          existingAlarm.Status === alarm.Status &&
-          existingAlarm.start_time === alarm.start_time
+      const newAlarms = formattedAlarms.filter(a =>
+        !existingAlarms.some(e =>
+          e.Source === a.Source &&
+          e.Status === a.Status &&
+          e.start_time === a.start_time
         )
       );
 
       if (newAlarms.length > 0) {
         await this.recentAlarmModel.insertMany(newAlarms, { ordered: false });
-        console.log('✅ New alarms inserted successfully!');
-      } else {
-        console.log('No new alarms to insert.');
+        console.log('✅ New alarms inserted into recentAlarms!');
       }
     } catch (err) {
-      console.error('❌ Error while inserting new alarms:', err.message);
+      console.error('❌ Error while inserting into recentAlarms:', err.message);
     }
   }
 
   return formattedAlarms;
 }
+
 
   
   

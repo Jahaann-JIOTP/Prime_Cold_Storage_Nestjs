@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type AlarmDocument = Alarm & Document;
 
-@Schema()
+@Schema({ collection: 'alarms' })
 export class Alarm {
   @Prop()
   Source: string;
