@@ -1,4 +1,3 @@
-
 import { Injectable, HttpException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 
@@ -8,7 +7,7 @@ export class NodeRedLinkService {
 
   async fetchNodeRedData(): Promise<any> {
     try {
-      const response = await this.httpService.axiosRef.get('http://13.234.241.103:1880/prime_cold');
+      const response = await this.httpService.axiosRef.get('t');
       return response.data;
     } catch (error) {
       throw new HttpException('Unable to fetch data from Node-RED', 500);
