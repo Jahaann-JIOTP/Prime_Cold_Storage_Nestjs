@@ -1,15 +1,15 @@
 import { Schema, Document } from 'mongoose';
 
-export type Compressor1Document = Document & {
+export type room1Document = Document & {
   timestamp: Date;
-  U3_Active_Energy_Total_Consumed: number;
+  U7_Active_Energy_Total_Consumed: number;
   // other fields...
 };
 
-export const Compressor1Schema = new Schema(
+export const room1Schema = new Schema(
   {
     timestamp: { type: Date, required: true },
-    U3_Active_Energy_Total_Consumed: { type: Number },
+    U7_Active_Energy_Total_Consumed: { type: Number },
     // other fields...
   },
   {

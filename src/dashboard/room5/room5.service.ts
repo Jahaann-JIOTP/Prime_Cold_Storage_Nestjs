@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import * as moment from 'moment-timezone';
-import { Compressor2Document } from './schemas/compressor2.schema';
-import { Getcompressor3Dto } from './dto/get-compressor3.dto';
+import { Model } from 'mongoose';
+import { room5Document } from './schema/room5.schema';
+import { Getroom5Dto } from './dto/get-room5.dto';
 
 @Injectable()
-export class Compressor3Service {
-  private readonly Compressor3Keys = ['U5_Active_Energy_Total_Consumed'];
+export class Room5Service {
+  private readonly room5Keys = ['U11_Active_Energy_Total_Consumed'];
 
   constructor(
-    @InjectModel('Compressor3')
-    private readonly compressorModel: Model<Compressor2Document>,
+    @InjectModel('room5')
+    private readonly room5Model: Model<room5Document>,
   ) {}
 
-  async handleQuery(query: Getcompressor3Dto) {
+  async handleQuery(query: Getroom5Dto) {
     switch (query.value) {
       case 'today':
         return this.getTodayData();
@@ -30,7 +30,7 @@ export class Compressor3Service {
   }
 
   async getTodayData() {
-    const collection = this.compressorModel.collection;
+    const collection = this.room5Model.collection;
 
     const now = moment().tz('Asia/Karachi');
 
@@ -46,7 +46,7 @@ export class Compressor3Service {
     };
 
     const projection: any = { timestamp: 1 };
-    this.Compressor3Keys.forEach((key) => (projection[key] = 1));
+    this.room5Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
       .aggregate([
@@ -135,7 +135,7 @@ export class Compressor3Service {
       let todayTotal = 0;
       let yesterdayTotal = 0;
 
-      for (const key of this.Compressor3Keys) {
+      for (const key of this.room5Keys) {
         const yStart = yesterdayHours[h].valueOf();
         const yEnd = yesterdayHours[h + 1].valueOf();
         const tStart = todayHours[h].valueOf();
@@ -198,7 +198,7 @@ export class Compressor3Service {
   }
 
   async getWeekData() {
-    const collection = this.compressorModel.collection;
+    const collection = this.room5Model.collection;
 
     const now = new Date();
 
@@ -224,7 +224,7 @@ export class Compressor3Service {
     };
 
     const projection: any = { timestamp: 1 };
-    this.Compressor3Keys.forEach((key) => (projection[key] = 1));
+    this.room5Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
       .aggregate([
@@ -245,7 +245,7 @@ export class Compressor3Service {
           ? 'This Week'
           : 'Last Week';
 
-      for (const key of this.Compressor3Keys) {
+      for (const key of this.room5Keys) {
         if (doc[key] != null) {
           firstValues[day] ??= {};
           lastValues[day] ??= {};
@@ -268,7 +268,7 @@ export class Compressor3Service {
       let thisWeekTotal = 0;
       let lastWeekTotal = 0;
 
-      for (const key of this.Compressor3Keys) {
+      for (const key of this.room5Keys) {
         if (
           firstValues?.[day]?.['This Week']?.[key] != null &&
           lastValues?.[day]?.['This Week']?.[key] != null
@@ -299,7 +299,7 @@ export class Compressor3Service {
   }
 
   async getYearData() {
-    const collection = this.compressorModel.collection;
+    const collection = this.room5Model.collection;
 
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -313,7 +313,7 @@ export class Compressor3Service {
     };
 
     const projection: any = { timestamp: 1 };
-    this.Compressor3Keys.forEach((key) => (projection[key] = 1));
+    this.room5Keys.forEach((key) => (projection[key] = 1));
 
     try {
       const data = await collection
@@ -342,7 +342,7 @@ export class Compressor3Service {
           dailyLastValues[year][dateStr] = {};
         }
 
-        this.Compressor3Keys.forEach((key) => {
+        this.room5Keys.forEach((key) => {
           if (doc[key] != null) {
             if (!(key in dailyFirstValues[year][dateStr])) {
               dailyFirstValues[year][dateStr][key] = doc[key];
@@ -380,7 +380,7 @@ export class Compressor3Service {
           const month = moment(date).format('MMM');
 
           let dailyTotal = 0;
-          this.Compressor3Keys.forEach((key) => {
+          this.room5Keys.forEach((key) => {
             const first = dailyFirstValues[year][dateStr][key];
             const last = dailyLastValues[year][dateStr][key];
             if (first != null && last != null) {
@@ -417,7 +417,7 @@ export class Compressor3Service {
     });
   }
   async getMonthData() {
-    const collection = this.compressorModel.collection;
+    const collection = this.room5Model.collection;
 
     const now = new Date();
     const startOfThisMonth = moment().startOf('month').toDate();
@@ -440,7 +440,7 @@ export class Compressor3Service {
     };
 
     const projection: any = { timestamp: 1 };
-    this.Compressor3Keys.forEach((key) => (projection[key] = 1));
+    this.room5Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
       .aggregate([
@@ -460,7 +460,7 @@ export class Compressor3Service {
         dailyConsumption[formattedDate] = {};
       }
 
-      for (const key of this.Compressor3Keys) {
+      for (const key of this.room5Keys) {
         if (doc[key] != null) {
           if (!dailyConsumption[formattedDate][key]) {
             dailyConsumption[formattedDate][key] = { first: null, last: null };
@@ -505,7 +505,7 @@ export class Compressor3Service {
       const dateData = dailyConsumption[date];
       let totalConsumption = 0;
 
-      for (const key of this.Compressor3Keys) {
+      for (const key of this.room5Keys) {
         const keyData = dateData[key];
         if (keyData && keyData.first != null && keyData.last != null) {
           totalConsumption += keyData.last - keyData.first;
