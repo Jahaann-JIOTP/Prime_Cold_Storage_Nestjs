@@ -32,13 +32,15 @@ import { Compressor3Module } from './dashboard/compressor3/compressor3.module';
 import { Compressor1Module } from './dashboard/compressor1/compressor1.module';
 // import { LogsModule } from './logs/logs.module';
 import { LogsDataModule } from './diagram/logs_data/logs_data.module';
-import {CompressorRuntimeModule } from './prime-cold-hrs/compressor-runtime.module.ts';
+import { CompressorRuntimeModule } from './prime-cold-hrs/compressor-runtime.module.ts';
 import { NodeRedLinkModule } from './node_red_link/node_red_link.module';
-
-
-
-
-
+import { Room1Module } from './dashboard/room1/room1.module';
+import { Room2Module } from './dashboard/room2/room2.module';
+import { Room3Module } from './dashboard/room3/room3.module';
+import { Room4Module } from './dashboard/room4/room4.module';
+import { Room5Module } from './dashboard/room5/room5.module';
+import { Room6Module } from './dashboard/room6/room6.module';
+import { Room7Module } from './dashboard/room7/room7.module';
 
 @Module({
   imports: [
@@ -52,7 +54,6 @@ import { NodeRedLinkModule } from './node_red_link/node_red_link.module';
     MongooseModule.forRoot(process.env.PRIMECOLD_URI!, {
       connectionName: 'prime_cold',
     }),
-
 
     // Your app modules
     DashboardModule,
@@ -79,12 +80,16 @@ import { NodeRedLinkModule } from './node_red_link/node_red_link.module';
     LogsDataModule,
     CompressorRuntimeModule,
     NodeRedLinkModule,
-    
-    
-   
-    
+
+    Room1Module,
+    Room2Module,
+    Room3Module,
+    Room4Module,
+    Room5Module,
+    Room6Module,
+    Room7Module,
   ],
   controllers: [AppController, DiagramController],
-  providers: [AppService,  DiagramService],
+  providers: [AppService, DiagramService],
 })
 export class AppModule {}
