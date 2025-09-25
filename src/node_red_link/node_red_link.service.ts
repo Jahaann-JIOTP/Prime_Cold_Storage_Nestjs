@@ -5,9 +5,12 @@ import { HttpService } from '@nestjs/axios';
 export class NodeRedLinkService {
   constructor(private readonly httpService: HttpService) {}
 
+  // node-red link
   async fetchNodeRedData(): Promise<any> {
     try {
-      const response = await this.httpService.axiosRef.get('t');
+      const response = await this.httpService.axiosRef.get(
+        'http://13.234.241.103:1880/prime_cold',
+      );
       return response.data;
     } catch (error) {
       throw new HttpException('Unable to fetch data from Node-RED', 500);
