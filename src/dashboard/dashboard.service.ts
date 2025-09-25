@@ -5,21 +5,21 @@ import { DateTime } from 'luxon';
 
 @Injectable()
 export class DashboardService {
-  
-constructor(
-    @InjectModel('prime_historical_data') private readonly dashboardModel: Model<any>,
+  constructor(
+    @InjectModel('prime_historical_data')
+    private readonly dashboardModel: Model<any>,
   ) {}
-  
 
   async getConsumption(startDate: string, endDate: string) {
-    const meterIds = [
-      "U2", "U1",
+    const meterIds = ['U2', 'U1'];
+    const suffixes = [
+      'Active_Energy_Total_Consumed',
+      'Active_Energy_Total_Supplied',
+      'Active_Energy_Total',
     ];
-    const suffixes = ["Active_Energy_Total_Consumed", "Active_Energy_Total_Supplied", "Active_Energy_Total"];
-    const solarKeys = ["U2_Active_Energy_Total"];
-    const wapdaImportKeys = ["U1_Active_Energy_Total_Consumed"];
-    const wapdaExportKeys = ["U1_Active_Energy_Total_Supplied"];
-    
+    const solarKeys = ['U2_Active_Energy_Total'];
+    const wapdaImportKeys = ['U1_Active_Energy_Total_Consumed'];
+    const wapdaExportKeys = ['U1_Active_Energy_Total_Supplied'];
 
     const startISO = new Date(`${startDate}T00:00:00.000+05:00`);
     const endISO = new Date(`${endDate}T23:59:59.999+05:00`);
@@ -32,7 +32,14 @@ constructor(
     });
 
     const rawData = await this.dashboardModel.aggregate([
-      { $match: { timestamp: { $gte: startISO.toISOString(), $lte: endISO.toISOString() } } },
+      {
+        $match: {
+          timestamp: {
+            $gte: startISO.toISOString(),
+            $lte: endISO.toISOString(),
+          },
+        },
+      },
       { $project: projection },
       { $sort: { timestamp: 1 } },
     ]);
@@ -95,19 +102,17 @@ constructor(
       Solars: 0,
       wapda_Import: 0,
       wapda_Export: 0,
-      
     };
 
     Object.values(dailyConsumption).forEach((day: any) => {
       Object.entries(day).forEach(([key, value]) => {
         if (solarKeys.includes(key)) total.Solars += Number(value) || 0;
-        else if (wapdaImportKeys.includes(key)) total.wapda_Import += Number(value) || 0;
-        else if (wapdaExportKeys.includes(key)) total.wapda_Export += Number(value) || 0;
-       
+        else if (wapdaImportKeys.includes(key))
+          total.wapda_Import += Number(value) || 0;
+        else if (wapdaExportKeys.includes(key))
+          total.wapda_Export += Number(value) || 0;
       });
     });
-
-    
 
     return { total_consumption: total };
   }
