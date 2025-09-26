@@ -132,7 +132,7 @@ export class EnergyService {
     ];
 
     const solarKeys = ['U2_Active_Energy_Total'];
-    const WapdaKeys = ['U1_Active_Energy_Total_Consumed'];
+    const WapdaKeys = ['U1_Active_Energy_Total'];
     const Wapda2Keys = ['U1_Active_Energy_Total_Supplied'];
 
     // Compressors

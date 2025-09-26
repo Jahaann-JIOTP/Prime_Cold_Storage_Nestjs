@@ -9,7 +9,7 @@ export class ConVsProController {
   async getConVsPro(
     @Query('start_date') startDate: string,
     @Query('end_date') endDate: string,
-    @Query('label') label: string
+    @Query('label') label: string,
   ) {
     return this.conVsProService.getPowerData(startDate, endDate, label);
   }

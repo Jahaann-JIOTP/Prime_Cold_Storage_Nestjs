@@ -116,6 +116,7 @@ export class DashboardService {
 
     return { total_consumption: total };
   }
+
   // async getTodayData(): Promise<any> {
   //   // Set the start and end of today and yesterday in UTC
   //   const today = DateTime.utc().startOf('day');
