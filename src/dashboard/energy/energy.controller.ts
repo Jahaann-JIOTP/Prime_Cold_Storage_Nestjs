@@ -9,6 +9,9 @@ export class EnergyController {
 
   @Get('consumption')
   async getEnergyData(@Query() query: EnergyQueryDto) {
-    return await this.energyService.getConsumption(query.start_date, query.end_date);
+    return await this.energyService.getConsumption(
+      query.start_date,
+      query.end_date,
+    );
   }
 }
