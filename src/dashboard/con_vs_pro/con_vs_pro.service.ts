@@ -223,15 +223,15 @@
 //       const solar = sumGroup(solarKeys);
 //       const wapda = sumGroup(WapdaKeys);
 
-//       const totalConsumption = solar + wapda;
+//       const totalGeneration = solar + wapda;
 
 //       const compressor1 = consumption[Compressor1Key] || 0;
 //       const compressor2 = consumption[Compressor2Key] || 0;
 //       const compressor3 = consumption[Compressor3Key] || 0;
 //       const totalCompressors = compressor1 + compressor2 + compressor3;
 
-//       // const unaccounted = totalConsumption - totalCompressors;
-//       const losses = totalConsumption - totalCompressors;
+//       // const unaccounted = totalGeneration - totalCompressors;
+//       const losses = totalGeneration - totalCompressors;
 
 //       // Define type for daily result
 //       type DailyResult = {
@@ -261,7 +261,7 @@
 //         compressor2: +compressor2.toFixed(5),
 //         compressor3: +compressor3.toFixed(5),
 //         // total_compressors: +totalCompressors.toFixed(5),
-//         // total_consumption: +totalConsumption.toFixed(5),
+//         // total_consumption: +totalGeneration.toFixed(5),
 //         // unaccounted_energy: +unaccounted.toFixed(5),
 //         losses: +losses.toFixed(2),
 //       });
@@ -369,13 +369,13 @@
 //     const final = Object.values(results).map((entry: any) => {
 //       const totalCompressors =
 //         entry.compressor1 + entry.compressor2 + entry.compressor3;
-//       const totalConsumption = entry.solar + entry.wapda;
-//       // const unaccounted = totalConsumption - totalCompressors;
-//       const losses = totalConsumption - totalCompressors;
+//       const totalGeneration = entry.solar + entry.wapda;
+//       // const unaccounted = totalGeneration - totalCompressors;
+//       const losses = totalGeneration - totalCompressors;
 //       return {
 //         ...entry,
 //         // total_compressors: +totalCompressors.toFixed(2),
-//         // total_consumption: +totalConsumption.toFixed(2),
+//         // total_consumption: +totalGeneration.toFixed(2),
 //         // unaccounted_energy: +unaccounted.toFixed(2),
 //         losses: +losses.toFixed(2),
 //       };
@@ -458,8 +458,12 @@ export class ConVsProService {
         $group: {
           _id: '$hourStart',
           // Solar & Wapda
-          first_solar: { $first: { $ifNull: ['$U2_Active_Energy_Total', 0] } },
-          last_solar: { $last: { $ifNull: ['$U2_Active_Energy_Total', 0] } },
+          first_solar: {
+            $first: { $ifNull: ['$U2_Active_Energy_Total_Consumed', 0] },
+          },
+          last_solar: {
+            $last: { $ifNull: ['$U2_Active_Energy_Total_Consumed', 0] },
+          },
 
           first_wapda: {
             $first: { $ifNull: ['$U1_Active_Energy_Total_Consumed', 0] },
@@ -629,8 +633,8 @@ export class ConVsProService {
       'Active_Energy_Total',
     ];
 
-    const solarKeys = ['U2_Active_Energy_Total'];
-    const WapdaKeys = ['U1_Active_Energy_Total_Consumed'];
+    const solarKeys = ['U2_Active_Energy_Total_Consumed'];
+    const WapdaKeys = ['U1_Active_Energy_Total'];
 
     const matchStage = {
       timestamp: {
@@ -697,7 +701,7 @@ export class ConVsProService {
       const room6 = consumption['U12_Active_Energy_Total_Consumed'] || 0;
       const room7 = consumption['U6_Active_Energy_Total_Consumed'] || 0;
 
-      const totalConsumption = solar + wapda;
+      const totalGeneration = solar + wapda;
       const totalCompressors =
         compressor1 +
         compressor2 +
@@ -710,7 +714,7 @@ export class ConVsProService {
         room6 +
         room7;
 
-      const losses = totalConsumption - totalCompressors;
+      const losses = totalGeneration - totalCompressors;
 
       dailyResults.push({
         date,
@@ -744,7 +748,7 @@ export class ConVsProService {
     const endISO = new Date(endDate + 'T23:59:59.999Z');
 
     const meterFields = [
-      { name: 'solar', field: 'U2_Active_Energy_Total' },
+      { name: 'solar', field: 'U2_Active_Energy_Total_Consumed' },
       { name: 'wapda', field: 'U1_Active_Energy_Total_Consumed' },
       { name: 'compressor1', field: 'U3_Active_Energy_Total_Consumed' },
       { name: 'compressor2', field: 'U4_Active_Energy_Total_Consumed' },
@@ -842,8 +846,8 @@ export class ConVsProService {
         entry.room6 +
         entry.room7;
 
-      const totalConsumption = entry.solar + entry.wapda;
-      const losses = totalConsumption - totalCompressors;
+      const totalGeneration = entry.solar + entry.wapda;
+      const losses = totalGeneration - totalCompressors;
       return {
         ...entry,
         losses: +losses.toFixed(2),
