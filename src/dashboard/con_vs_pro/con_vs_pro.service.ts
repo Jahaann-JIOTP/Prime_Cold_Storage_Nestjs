@@ -634,7 +634,7 @@ export class ConVsProService {
     ];
 
     const solarKeys = ['U2_Active_Energy_Total_Consumed'];
-    const WapdaKeys = ['U1_Active_Energy_Total'];
+    const WapdaKeys = ['U1_Active_Energy_Total_Consumed'];
 
     const matchStage = {
       timestamp: {

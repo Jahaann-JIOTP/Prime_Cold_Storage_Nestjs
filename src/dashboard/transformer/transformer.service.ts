@@ -100,10 +100,8 @@ async getTodayData() {
 
   function findBoundingDocs(docs: any[], targetTime: number) {
     if (docs.length === 0) return { before: null, after: null };
-
     let before = null;
     let after = null;
-
     let low = 0, high = docs.length - 1;
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);

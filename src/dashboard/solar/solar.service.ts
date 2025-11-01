@@ -8,7 +8,7 @@ import { GetSolarDto } from './dto/get-solar.dto';
 
 @Injectable()
 export class SolarService {
-  private readonly solarKeys = ['U2_Active_Energy_Total'];
+  private readonly solarKeys = ['U2_Active_Energy_Total_Consumed'];
 
   constructor(
     @InjectModel('Solar') private readonly solarModel: Model<SolarDocument>,

@@ -32,7 +32,7 @@ export class EnergyService {
 
     // Energy Sources
     const solarKeys = ['U2_Active_Energy_Total_Consumed'];
-    const WapdaKeys = ['U1_Active_Energy_Total'];
+    const WapdaKeys = ['U1_Active_Energy_Total_Consumed'];
     const Wapda2Keys = ['U1_Active_Energy_Total_Supplied'];
 
     // Compressors
@@ -41,7 +41,7 @@ export class EnergyService {
     const Compressor3Key = 'U5_Active_Energy_Total_Consumed';
 
     // Rooms mapping
-    const RoomKeys = {
+     const RoomKeys = {
       Room1: 'U7_Active_Energy_Total_Consumed',
       Room2: 'U8_Active_Energy_Total_Consumed',
       Room3: 'U9_Active_Energy_Total_Consumed',
@@ -58,7 +58,6 @@ export class EnergyService {
         $lte: `${end}T23:59:59.999+05:00`,
       },
     };
-
     // Projection
     const projection: { [key: string]: number } = { timestamp: 1 };
     for (const id of meterIds) {
@@ -150,5 +149,9 @@ export class EnergyService {
         Unaccountable_Energy: unaccountable.toFixed(5),
       },
     };
-  }
+    }
+
+    //async getCompressorConsumption(start: string, end: string,keyType) {
+    //    const
+    //}
 }

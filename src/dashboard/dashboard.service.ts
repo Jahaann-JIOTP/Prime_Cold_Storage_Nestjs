@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { DateTime } from 'luxon';
 
 @Injectable()
 export class DashboardService {
@@ -20,7 +19,6 @@ export class DashboardService {
     const solarKeys = ['U2_Active_Energy_Total_Consumed'];
     const wapdaImportKeys = ['U1_Active_Energy_Total_Consumed'];
     const wapdaExportKeys = ['U1_Active_Energy_Total_Supplied'];
-
     const startISO = new Date(`${startDate}T00:00:00.000+05:00`);
     const endISO = new Date(`${endDate}T23:59:59.999+05:00`);
 
