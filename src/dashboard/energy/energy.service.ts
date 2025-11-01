@@ -187,14 +187,6 @@ export class EnergyService {
         const startMoment = moment.tz(startDate, 'YYYY-MM-DD', 'Asia/Karachi').startOf('day');
         const endMoment = moment.tz(endDate, 'YYYY-MM-DD', 'Asia/Karachi').endOf('day');
         const current = startMoment.clone();
-
-        console.log('=== Starting getComputedHoursVsKWH ===');
-        console.log('Input Parameters:', { startDate, endDate, meterId });
-        console.log('Processing date range:', {
-            start: startMoment.format('YYYY-MM-DD'),
-            end: endMoment.format('YYYY-MM-DD')
-        });
-
         while (current.isSameOrBefore(endMoment, 'day')) {
             const dateStr = current.format('YYYY-MM-DD');
 
@@ -206,8 +198,7 @@ export class EnergyService {
             const dayStartISO = dayStart.toISOString(true);
             const dayEndISO = dayEnd.toISOString(true);
 
-            console.log(`\n=== Processing date: ${dateStr} ===`);
-            console.log('Day Range:', {
+            console.log(`\nProcessing date: ${dateStr}`, {
                 dayStart: dayStartISO,
                 dayEnd: dayEndISO
             });
@@ -217,26 +208,61 @@ export class EnergyService {
                 const dbField = this.keyMapping[meter.toLowerCase()];
 
                 if (!dbField) {
-                    console.log(`❌ Skipping ${meter} - no mapping found`);
+                    console.log(`Skipping ${meter} - no mapping found`);
                     continue;
                 }
 
-                console.log(`\n🔧 Processing meter: ${meter} (DB Field: ${dbField})`);
+                console.log(`Querying for ${meter} (${dbField}) from ${dayStartISO} to ${dayEndISO}`);
 
                 try {
-                    // Get ALL documents for this meter in the time range (not just > 0)
-                    const allDocuments = await this.energyModel.find(
+                    // Get all documents for this meter where energy consumption > 0
+                    const documents = await this.energyModel.find(
                         {
                             timestamp: { $gte: dayStartISO, $lte: dayEndISO },
-                            [dbField]: { $exists: true, $ne: null }
+                            [dbField]: { $exists: true, $ne: null, $gt: 0 }
                         },
                         { [dbField]: 1, timestamp: 1 },
                     ).sort({ timestamp: 1 }).lean();
 
-                    console.log(`📊 Found ${allDocuments.length} total documents for ${meter}`);
+                    console.log(`Found ${documents.length} documents with energy > 0 for ${meter}`);
 
-                    if (allDocuments.length < 2) {
-                        console.log(`❌ Insufficient documents for ${meter} (need at least 2, found ${allDocuments.length})`);
+                    if (documents.length >= 2) {
+                        const firstDoc = documents[0];
+                        const lastDoc = documents[documents.length - 1];
+
+                        const startVal = firstDoc[dbField];
+                        const endVal = lastDoc[dbField];
+                        const consumption = endVal - startVal;
+
+                        // Calculate runtime in seconds
+                        const startTime = moment(firstDoc.timestamp);
+                        const endTime = moment(lastDoc.timestamp);
+                        const runtime_seconds = endTime.diff(startTime, 'seconds');
+
+                        // Get display name
+                        const displayName = this.displayNames[meter.toLowerCase()] || meter;
+
+                        results.push({
+                            keyType: meter,
+                            name: displayName,
+                            runtime_seconds,
+                            consumption: parseFloat(consumption.toFixed(2)), // Round to 2 decimal places
+                            startValue: startVal,
+                            endValue: endVal,
+                            startTimestamp: firstDoc.timestamp,
+                            endTimestamp: lastDoc.timestamp,
+                            documentCount: documents.length
+                        });
+
+                        console.log(`Added result for ${meter}:`, {
+                            runtime_seconds,
+                            consumption,
+                            startValue: startVal,
+                            endValue: endVal
+                        });
+                    } else {
+                        console.log(`Insufficient data points for ${meter} (found ${documents.length} documents)`);
+
                         const displayName = this.displayNames[meter.toLowerCase()] || meter;
                         results.push({
                             keyType: meter,
@@ -245,74 +271,11 @@ export class EnergyService {
                             consumption: 0,
                             startValue: 0,
                             endValue: 0,
-                            error: allDocuments.length === 0 ? 'No data found' : 'Insufficient data points'
+                            error: documents.length === 0 ? 'No energy consumption data found' : 'Insufficient data points'
                         });
-                        continue;
                     }
-
-                    // Filter documents where energy consumption is actively increasing
-                    const activeDocuments = this.filterActiveEnergyPeriods(allDocuments, dbField);
-
-                    console.log(`⚡ Active energy periods: ${activeDocuments.length} segments found`);
-
-                    let totalRuntimeSeconds = 0;
-                    let totalConsumption = 0;
-
-                    // Calculate runtime and consumption for each active period
-                    for (const period of activeDocuments) {
-                        if (period.documents.length >= 2) {
-                            const periodStart = moment(period.documents[0].timestamp);
-                            const periodEnd = moment(period.documents[period.documents.length - 1].timestamp);
-                            const periodRuntime = periodEnd.diff(periodStart, 'seconds');
-
-                            const periodStartVal = period.documents[0][dbField];
-                            const periodEndVal = period.documents[period.documents.length - 1][dbField];
-                            const periodConsumption = periodEndVal - periodStartVal;
-
-                            totalRuntimeSeconds += periodRuntime;
-                            totalConsumption += periodConsumption;
-
-                            console.log(`📈 Active Period: ${periodStart.format('HH:mm:ss')} to ${periodEnd.format('HH:mm:ss')}`, {
-                                runtime_seconds: periodRuntime,
-                                consumption: periodConsumption.toFixed(2),
-                                documents: period.documents.length
-                            });
-                        }
-                    }
-
-                    // Get first and last values for the entire day
-                    const firstVal = allDocuments[0][dbField];
-                    const lastVal = allDocuments[allDocuments.length - 1][dbField];
-                    const dailyConsumption = lastVal - firstVal;
-
-                    console.log(`📋 Daily Summary for ${meter}:`, {
-                        total_runtime_seconds: totalRuntimeSeconds,
-                        total_consumption: totalConsumption.toFixed(2),
-                        daily_consumption: dailyConsumption.toFixed(2),
-                        first_value: firstVal,
-                        last_value: lastVal,
-                        active_periods: activeDocuments.length
-                    });
-
-                    const displayName = this.displayNames[meter.toLowerCase()] || meter;
-
-                    results.push({
-                        keyType: meter,
-                        name: displayName,
-                        runtime_seconds: totalRuntimeSeconds,
-                        consumption: parseFloat(totalConsumption.toFixed(2)),
-                        startValue: firstVal,
-                        endValue: lastVal,
-                        startTimestamp: allDocuments[0].timestamp,
-                        endTimestamp: allDocuments[allDocuments.length - 1].timestamp,
-                        documentCount: allDocuments.length,
-                        activePeriods: activeDocuments.length
-                    });
-
-                    console.log(`✅ Added result for ${meter}`);
-
                 } catch (error) {
-                    console.error(`💥 Error querying for ${meter}:`, error);
+                    console.error(`Error querying for ${meter}:`, error);
 
                     const displayName = this.displayNames[meter.toLowerCase()] || meter;
                     results.push({
@@ -327,57 +290,15 @@ export class EnergyService {
 
             // Move to next day
             current.add(1, 'day');
-            console.log(`\n🔄 Moving to next day: ${current.format('YYYY-MM-DD')}`);
+            console.log(`Moving to next day: ${current.format('YYYY-MM-DD')}`);
         }
 
-        console.log('\n=== Final Results Summary ===');
-        console.log(`Total results: ${results.length}`);
-        results.forEach(result => {
-            console.log(`- ${result.keyType}: ${result.runtime_seconds}s runtime, ${result.consumption} kWh`);
-        });
+        console.log('\nFinal KWH results count:', results.length);
 
         // Return in the required response structure
         return {
             success: true,
             data: results
         };
-    }
-
-    // Helper function to filter active energy consumption periods
-    private filterActiveEnergyPeriods(documents: any[], dbField: string): Array<{ documents: any[] }> {
-        const activePeriods: Array<{ documents: any[] }> = [];
-        let currentPeriod: any[] = [];
-
-        for (let i = 0; i < documents.length; i++) {
-            const currentDoc = documents[i];
-            const currentValue = currentDoc[dbField];
-
-            // If this is the first document, start a new period
-            if (currentPeriod.length === 0) {
-                currentPeriod.push(currentDoc);
-                continue;
-            }
-
-            const previousDoc = currentPeriod[currentPeriod.length - 1];
-            const previousValue = previousDoc[dbField];
-
-            // If energy is increasing or same, continue the current period
-            if (currentValue >= previousValue) {
-                currentPeriod.push(currentDoc);
-            } else {
-                // Energy decreased, end the current period and start a new one
-                if (currentPeriod.length >= 2) {
-                    activePeriods.push({ documents: [...currentPeriod] });
-                }
-                currentPeriod = [currentDoc];
-            }
-        }
-
-        // Don't forget the last period
-        if (currentPeriod.length >= 2) {
-            activePeriods.push({ documents: currentPeriod });
-        }
-
-        return activePeriods;
     }
 }
