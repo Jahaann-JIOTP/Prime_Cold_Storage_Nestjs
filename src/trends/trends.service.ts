@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CSNew } from './schemas/CS-new.schema';
-
+import * as moment from 'moment-timezone';
 @Injectable()
 export class TrendsService {
   constructor(
@@ -11,8 +11,10 @@ export class TrendsService {
   ) {}
 
   async getTrendData(startDate: string, endDate: string, meterIds: string[], suffixes: string[]) {
-    const start = `${startDate}T00:00:00.000+05:00`;
-    const end = `${endDate}T23:59:59.999+05:00`;
+      const startMoment = moment.tz(startDate, 'YYYY-MM-DD', 'Asia/Karachi').startOf('day');
+      const endMoment = moment.tz(endDate, 'YYYY-MM-DD', 'Asia/Karachi')
+          .add(1, 'day')
+          .add(1, 'minute');
 
     const projection: any = { timestamp: 1 };
     meterIds.forEach(meterId => {
@@ -22,7 +24,12 @@ export class TrendsService {
     });
 
     const newData = await this.csNewModel
-      .find({ timestamp: { $gte: start, $lte: end } }, projection)
+        .find({
+            timestamp: {
+                $gte: startMoment.toISOString(true),
+                $lte: endMoment.toISOString(true),
+            }
+        }, projection)
       .lean();
 
     const formatted = newData.map(doc => {

@@ -10,6 +10,7 @@ export class EnergyController {
 
     @Get('consumption')
     async getEnergyData(@Query() query: EnergyQueryDto) {
+        console.log('Received query:', query);
         return await this.energyService.getConsumption(
             query.start_date,
             query.end_date,

@@ -63,8 +63,8 @@ export class EnergyCostService {
 
             let suffix = '';
             if (meterId === 'U2') {
-                suffix = 'Active_Energy_Total';
-                if (!suffixArray.includes('Active_Energy_Total')) {
+                suffix = 'Active_Energy_Total_Consumed';
+                if (!suffixArray.includes('Active_Energy_Total_Consumed')) {
                     continue;
                 }
             } else {

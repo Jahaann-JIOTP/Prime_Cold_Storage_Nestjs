@@ -61,10 +61,7 @@ export class EnergyService {
             $lte: endMoment.toISOString(true),
       },
       };
-      console.log('Adjusted Query Range:', {
-          start: startMoment.format('YYYY-MM-DD HH:mm:ss.SSS'),
-          end: endMoment.format('YYYY-MM-DD HH:mm:ss.SSS')
-      });
+      console.log('Match Stage:', matchStage);
     // Projection
     const projection: { [key: string]: number } = { timestamp: 1 };
     for (const id of meterIds) {
@@ -158,16 +155,16 @@ export class EnergyService {
     };
     }
     private readonly keyMapping: { [key: string]: string } = {
-        'room1': 'U7_Active_Energy_Total_Consumed',
-        'room2': 'U8_Active_Energy_Total_Consumed',
-        'room3': 'U9_Active_Energy_Total_Consumed',
-        'room4': 'U10_Active_Energy_Total_Consumed',
-        'room5': 'U11_Active_Energy_Total_Consumed',
-        'room6': 'U12_Active_Energy_Total_Consumed',
-        'room7': 'U6_Active_Energy_Total_Consumed',
-        'compressor1': 'U3_Active_Energy_Total_Consumed',
-        'compressor2': 'U5_Active_Energy_Total_Consumed',
-        'condensorpump': 'U4_Active_Energy_Total_Consumed'
+        'room1': 'U7_Total_Active_Power',
+        'room2': 'U8_Total_Active_Power',
+        'room3': 'U9_Total_Active_Power',
+        'room4': 'U10_Total_Active_Power',
+        'room5': 'U11_Total_Active_Power',
+        'room6': 'U12_Total_Active_Power',
+        'room7': 'U6_Total_Active_Power',
+        'compressor1': 'U3_Total_Active_Power',
+        'compressor2': 'U5_Total_Active_Power',
+        'condensorpump': 'U4_Total_Active_Power'
     };
     private readonly displayNames: { [key: string]: string } = {
         'room1': 'Room 1',
@@ -198,22 +195,15 @@ export class EnergyService {
             const dayStartISO = dayStart.toISOString(true);
             const dayEndISO = dayEnd.toISOString(true);
 
-            console.log(`\nProcessing date: ${dateStr}`, {
-                dayStart: dayStartISO,
-                dayEnd: dayEndISO
-            });
+
 
             // Process each meter ID
             for (const meter of meterId) {
                 const dbField = this.keyMapping[meter.toLowerCase()];
 
                 if (!dbField) {
-                    console.log(`Skipping ${meter} - no mapping found`);
                     continue;
                 }
-
-                console.log(`Querying for ${meter} (${dbField}) from ${dayStartISO} to ${dayEndISO}`);
-
                 try {
                     // Get all documents for this meter where energy consumption > 0
                     const documents = await this.energyModel.find(
@@ -223,9 +213,6 @@ export class EnergyService {
                         },
                         { [dbField]: 1, timestamp: 1 },
                     ).sort({ timestamp: 1 }).lean();
-
-                    console.log(`Found ${documents.length} documents with energy > 0 for ${meter}`);
-
                     if (documents.length >= 2) {
                         const firstDoc = documents[0];
                         const lastDoc = documents[documents.length - 1];
@@ -253,16 +240,7 @@ export class EnergyService {
                             endTimestamp: lastDoc.timestamp,
                             documentCount: documents.length
                         });
-
-                        console.log(`Added result for ${meter}:`, {
-                            runtime_seconds,
-                            consumption,
-                            startValue: startVal,
-                            endValue: endVal
-                        });
                     } else {
-                        console.log(`Insufficient data points for ${meter} (found ${documents.length} documents)`);
-
                         const displayName = this.displayNames[meter.toLowerCase()] || meter;
                         results.push({
                             keyType: meter,
@@ -275,8 +253,6 @@ export class EnergyService {
                         });
                     }
                 } catch (error) {
-                    console.error(`Error querying for ${meter}:`, error);
-
                     const displayName = this.displayNames[meter.toLowerCase()] || meter;
                     results.push({
                         keyType: meter,
@@ -290,10 +266,7 @@ export class EnergyService {
 
             // Move to next day
             current.add(1, 'day');
-            console.log(`Moving to next day: ${current.format('YYYY-MM-DD')}`);
         }
-
-        console.log('\nFinal KWH results count:', results.length);
 
         // Return in the required response structure
         return {
