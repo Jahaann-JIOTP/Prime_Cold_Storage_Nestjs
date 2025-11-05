@@ -166,6 +166,20 @@ export class EnergyService {
         'compressor2': 'U5_Total_Active_Power',
         'condensorpump': 'U4_Total_Active_Power'
     };
+
+    private readonly energyConsumptionMapping: { [key: string]: string } = {
+        'room1': 'U7_Active_Energy_Total_Consumed',
+        'room2': 'U8_Active_Energy_Total_Consumed',
+        'room3': 'U9_Active_Energy_Total_Consumed',
+        'room4': 'U10_Active_Energy_Total_Consumed',
+        'room5': 'U11_Active_Energy_Total_Consumed',
+        'room6': 'U12_Active_Energy_Total_Consumed',
+        'room7': 'U6_Active_Energy_Total_Consumed',
+        'compressor1': 'U3_Active_Energy_Total_Consumed',
+        'compressor2': 'U5_Active_Energy_Total_Consumed',
+        'condensorpump': 'U4_Active_Energy_Total_Consumed'
+    };
+
     private readonly displayNames: { [key: string]: string } = {
         'room1': 'Room 1',
         'room2': 'Room 2',
@@ -181,83 +195,208 @@ export class EnergyService {
 
     async getComputedHoursVsKWH(startDate: string, endDate: string, meterId: string[]) {
         const results: any[] = [];
-        const startMoment = moment.tz(startDate, 'YYYY-MM-DD', 'Asia/Karachi').startOf('day');
-        const endMoment = moment.tz(endDate, 'YYYY-MM-DD', 'Asia/Karachi').endOf('day');
+
+        // Use the same timezone handling as getEnergyUsage
+        const startMoment = moment.tz(startDate, 'YYYY-MM-DD', 'Asia/Karachi');
+        const endMoment = moment.tz(endDate, 'YYYY-MM-DD', 'Asia/Karachi');
         const current = startMoment.clone();
+
+        // Default times (same as getEnergyUsage)
+        const defaultStartTime = '00:00:00.000';
+        const defaultEndTime = '23:59:59.999';
+
+        // Special handling for end time - include next day's first reading
+        const shouldIncludeNextDay = true; // Always include next day's first reading for this function
+
+        console.log('Query Parameters:', {
+            start_date: startDate,
+            end_date: endDate,
+            shouldIncludeNextDay,
+            meterIds: meterId
+        });
+
         while (current.isSameOrBefore(endMoment, 'day')) {
             const dateStr = current.format('YYYY-MM-DD');
+            const isFirstDay = current.isSame(startMoment, 'day');
 
-            // For each day, we want from current day 00:00:00 to next day 00:00:00
-            const dayStart = moment.tz(`${dateStr} 00:00:00.000`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi');
-            const dayEnd = moment.tz(`${dateStr} 23:59:59.999`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi')
-                .add(1, 'minute'); // Include the first reading of next day
+            // For each day, calculate the proper start and end times (same logic as getEnergyUsage)
+            let dayStart, dayEnd;
+
+            if (isFirstDay) {
+                // First day - use the provided start_time
+                dayStart = moment.tz(`${dateStr} ${defaultStartTime}`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi');
+            } else {
+                // Subsequent days - always start at the same start_time
+                dayStart = moment.tz(`${dateStr} ${defaultStartTime}`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi');
+            }
+
+            if (shouldIncludeNextDay) {
+                // Include next day's first reading
+                const nextDay = current.clone().add(1, 'day');
+                dayEnd = moment.tz(`${nextDay.format('YYYY-MM-DD')} 00:00:00.000`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi')
+                    .add(1, 'minute'); // Include the first reading of next day
+            } else {
+                // For specific time ranges, use the exact end time for each day
+                dayEnd = moment.tz(`${dateStr} ${defaultEndTime}`, 'YYYY-MM-DD HH:mm:ss.SSS', 'Asia/Karachi');
+            }
 
             const dayStartISO = dayStart.toISOString(true);
             const dayEndISO = dayEnd.toISOString(true);
 
-
+            console.log(`\nProcessing date: ${dateStr}`, {
+                isFirstDay,
+                shouldIncludeNextDay,
+                dayStart: dayStart.format('YYYY-MM-DD HH:mm:ss.SSS'),
+                dayEnd: dayEnd.format('YYYY-MM-DD HH:mm:ss.SSS'),
+                dayStartISO,
+                dayEndISO
+            });
 
             // Process each meter ID
             for (const meter of meterId) {
-                const dbField = this.keyMapping[meter.toLowerCase()];
+                const powerField = this.keyMapping[meter.toLowerCase()];
+                const energyField = this.energyConsumptionMapping[meter.toLowerCase()];
 
-                if (!dbField) {
+                if (!powerField || !energyField) {
+                    console.log(`Skipping ${meter} - no field mapping available`);
                     continue;
                 }
+
                 try {
-                    // Get all documents for this meter where energy consumption > 0
+                    // Get all documents for this meter where active power > 0
                     const documents = await this.energyModel.find(
                         {
                             timestamp: { $gte: dayStartISO, $lte: dayEndISO },
-                            [dbField]: { $exists: true, $ne: null, $gt: 0 }
+                            [powerField]: { $exists: true, $ne: null, $gt: 0 }
                         },
-                        { [dbField]: 1, timestamp: 1 },
+                        {
+                            [powerField]: 1,
+                            [energyField]: 1,
+                            timestamp: 1
+                        },
                     ).sort({ timestamp: 1 }).lean();
+
+                    console.log(`Found ${documents.length} documents for ${meter} on ${dateStr}`);
+
                     if (documents.length >= 2) {
-                        const firstDoc = documents[0];
-                        const lastDoc = documents[documents.length - 1];
+                        let totalRuntimeSeconds = 0;
+                        let segmentStartTime: moment.Moment | null = null;
 
-                        const startVal = firstDoc[dbField];
-                        const endVal = lastDoc[dbField];
-                        const consumption = endVal - startVal;
+                        // Calculate total runtime when active power > 0
+                        for (let i = 0; i < documents.length; i++) {
+                            const doc = documents[i];
 
-                        // Calculate runtime in seconds
-                        const startTime = moment(firstDoc.timestamp);
-                        const endTime = moment(lastDoc.timestamp);
-                        const runtime_seconds = endTime.diff(startTime, 'seconds');
+                            if (doc[powerField] > 0) {
+                                // Start of a running segment
+                                if (segmentStartTime === null) {
+                                    segmentStartTime = moment(doc.timestamp);
+                                }
 
-                        // Get display name
-                        const displayName = this.displayNames[meter.toLowerCase()] || meter;
+                                // If this is the last document or next document has power = 0, end the segment
+                                if (i === documents.length - 1 || documents[i + 1][powerField] <= 0) {
+                                    if (segmentStartTime !== null) {
+                                        const segmentEndTime = moment(doc.timestamp);
+                                        totalRuntimeSeconds += segmentEndTime.diff(segmentStartTime, 'seconds');
+                                        segmentStartTime = null;
+                                    }
+                                }
+                            }
+                        }
 
-                        results.push({
-                            keyType: meter,
-                            name: displayName,
-                            runtime_seconds,
-                            consumption: parseFloat(consumption.toFixed(2)), // Round to 2 decimal places
-                            startValue: startVal,
-                            endValue: endVal,
-                            startTimestamp: firstDoc.timestamp,
-                            endTimestamp: lastDoc.timestamp,
-                            documentCount: documents.length
+                        // Find earliest and latest energy records for this day (same approach as getEnergyUsage)
+                        const firstEnergyDoc = await this.energyModel.findOne(
+                            {
+                                timestamp: { $gte: dayStartISO, $lte: dayEndISO },
+                                [energyField]: { $exists: true, $ne: null }
+                            },
+                            { [energyField]: 1, timestamp: 1 },
+                        ).sort({ timestamp: 1 }).lean();
+
+                        const lastEnergyDoc = await this.energyModel.findOne(
+                            {
+                                timestamp: { $gte: dayStartISO, $lte: dayEndISO },
+                                [energyField]: { $exists: true, $ne: null }
+                            },
+                            { [energyField]: 1, timestamp: 1 },
+                        ).sort({ timestamp: -1 }).lean();
+
+                        console.log(`Energy results for ${meter}:`, {
+                            firstDoc: firstEnergyDoc ? {
+                                value: firstEnergyDoc[energyField],
+                                timestamp: firstEnergyDoc.timestamp
+                            } : null,
+                            lastDoc: lastEnergyDoc ? {
+                                value: lastEnergyDoc[energyField],
+                                timestamp: lastEnergyDoc.timestamp
+                            } : null
                         });
+
+                        if (firstEnergyDoc && lastEnergyDoc) {
+                            const startEnergy = firstEnergyDoc[energyField] || 0;
+                            const endEnergy = lastEnergyDoc[energyField] || 0;
+                            const consumption = endEnergy - startEnergy;
+
+                            // Get display name
+                            const displayName = this.displayNames[meter.toLowerCase()] || meter;
+
+                            results.push({
+                                date: dateStr,
+                                keyType: meter,
+                                name: displayName,
+                                runtime_seconds: totalRuntimeSeconds,
+                                runtime_hours: parseFloat((totalRuntimeSeconds / 3600).toFixed(3)),
+                                consumption: parseFloat(consumption.toFixed(2)),
+                                startEnergyValue: startEnergy,
+                                endEnergyValue: endEnergy,
+                                startTimestamp: firstEnergyDoc.timestamp,
+                                endTimestamp: lastEnergyDoc.timestamp,
+                                documentCount: documents.length,
+                                segmentsWithPower: documents.filter(d => d[powerField] > 0).length
+                            });
+
+                            console.log(`Added result for ${meter}:`, {
+                                date: dateStr,
+                                runtime_seconds: totalRuntimeSeconds,
+                                consumption,
+                                startEnergyValue: startEnergy,
+                                endEnergyValue: endEnergy
+                            });
+                        } else {
+                            const displayName = this.displayNames[meter.toLowerCase()] || meter;
+                            results.push({
+                                date: dateStr,
+                                keyType: meter,
+                                name: displayName,
+                                runtime_seconds: 0,
+                                runtime_hours: 0,
+                                consumption: 0,
+                                startEnergyValue: 0,
+                                endEnergyValue: 0,
+                                error: 'No energy consumption data found'
+                            });
+                        }
                     } else {
                         const displayName = this.displayNames[meter.toLowerCase()] || meter;
                         results.push({
+                            date: dateStr,
                             keyType: meter,
                             name: displayName,
                             runtime_seconds: 0,
+                            runtime_hours: 0,
                             consumption: 0,
-                            startValue: 0,
-                            endValue: 0,
+                            startEnergyValue: 0,
+                            endEnergyValue: 0,
                             error: documents.length === 0 ? 'No energy consumption data found' : 'Insufficient data points'
                         });
                     }
                 } catch (error) {
                     const displayName = this.displayNames[meter.toLowerCase()] || meter;
                     results.push({
+                        date: dateStr,
                         keyType: meter,
                         name: displayName,
                         runtime_seconds: 0,
+                        runtime_hours: 0,
                         consumption: 0,
                         error: error.message
                     });
@@ -266,7 +405,10 @@ export class EnergyService {
 
             // Move to next day
             current.add(1, 'day');
+            console.log(`Moving to next day: ${current.format('YYYY-MM-DD')}`);
         }
+
+        console.log('\nFinal results count:', results.length);
 
         // Return in the required response structure
         return {
