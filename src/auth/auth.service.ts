@@ -11,7 +11,8 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<any> {
+    async validateUser(email: string, password: string): Promise<any> {
+       
     const user = await this.usersService.findByEmail(email);
 
     if (!user) {
@@ -28,17 +29,26 @@ export class AuthService {
     return userWithoutPass;
   }
 
-  async login(user: UserDocument) {
-    const payload = {
-      email: user.email,
-      sub: (user._id as any).toString(),  // ✅ _id now works
-    };
+    async login(user: UserDocument) {
+        // Check if the email is locked
+        if (user.email === 'automation@jiotp.com') {
+            return {
+                message: 'Access Restricted. Due To Pending Payment.',
+                access_token: null,
+            };
+        }
 
-    return {
-      message: 'Login successful!',
-      access_token: this.jwtService.sign(payload),
-    };
-  }
+        const payload = {
+            email: user.email,
+            sub: (user._id as any).toString(),
+        };
+
+        return {
+            message: 'Login successful!',
+            access_token: this.jwtService.sign(payload),
+        };
+    }
+
 
   async resetPassword(email: string, newPassword: string): Promise<string> {
     return this.usersService.resetPassword(email, newPassword);
