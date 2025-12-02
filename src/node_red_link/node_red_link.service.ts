@@ -9,7 +9,7 @@ export class NodeRedLinkService {
   async fetchNodeRedData(): Promise<any> {
     try {
       const response = await this.httpService.axiosRef.get(
-        'http://13.234.241.103:1880/prime_cold',
+        'http://43.204.118.114:6881/prime_cold',
       );
       return response.data;
     } catch (error) {
