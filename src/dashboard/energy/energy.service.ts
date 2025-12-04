@@ -316,7 +316,7 @@ export class EnergyService
                                 }
 
                                 // If this is the last document or next document has power = 0, end the segment
-                                if ( i === documents.length - 1 || documents[ i + 1 ][ powerField ] <= 0 )
+                                if ( i === documents.length - 1 || documents[ i + 1 ][ powerField ] <= 40 )
                                 {
                                     if ( segmentStartTime !== null )
                                     {
