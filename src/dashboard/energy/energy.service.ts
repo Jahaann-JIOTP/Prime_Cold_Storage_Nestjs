@@ -286,7 +286,7 @@ export class EnergyService
                     const documents = await this.energyModel.find(
                         {
                             timestamp: { $gte: dayStartISO, $lte: dayEndISO },
-                            [ powerField ]: { $exists: true, $ne: null, $gt: 0 }
+                            [ powerField ]: { $exists: true, $ne: null, $gt:0 }
                         },
                         {
                             [ powerField ]: 1,
@@ -307,7 +307,7 @@ export class EnergyService
                         {
                             const doc = documents[ i ];
 
-                            if ( doc[ powerField ] > 40 )
+                            if ( doc[ powerField ] > 0 )
                             {
                                 // Start of a running segment
                                 if ( segmentStartTime === null )
@@ -316,7 +316,7 @@ export class EnergyService
                                 }
 
                                 // If this is the last document or next document has power = 0, end the segment
-                                if ( i === documents.length - 1 || documents[ i + 1 ][ powerField ] <= 40 )
+                                if ( i === documents.length - 1 || documents[ i + 1 ][ powerField ] <= 0 )
                                 {
                                     if ( segmentStartTime !== null )
                                     {
