@@ -31,12 +31,12 @@ export class AuthService {
 
     async login(user: UserDocument) {
         // Check if the email is locked
-        // if (user.email === 'automation@jiotp.com') {
-        //     return {
-        //         message: 'Access Restricted. Due To Pending Payment.',
-        //         access_token: null,
-        //     };
-        // }
+        if (user.email === 'automation@jiotp.com') {
+            return {
+                message: 'Access Restricted. Due To Pending Payment.',
+                access_token: null,
+            };
+        }
 
         const payload = {
             email: user.email,
