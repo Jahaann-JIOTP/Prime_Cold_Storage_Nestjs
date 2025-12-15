@@ -43,7 +43,7 @@
 //     }
 
 //     const meterIds = meters.split(',');
-//     const db = this.connection.useDb('iotdb');
+//     const db = this.connection.useDb('Prime_cold');
 //     const collectionName = 'prime_historical_data';
 //     const collection = db.collection(collectionName);
 
@@ -157,7 +157,7 @@ export class LogsDataService {
     }
 
     const meterIds = meters.split(',');
-    const db = this.connection.useDb('iotdb');
+    const db = this.connection.useDb('Prime_cold');
     const collection = db.collection('prime_historical_data');
 
     const startISO = `${start_date}T00:00:00.000+05:00`;

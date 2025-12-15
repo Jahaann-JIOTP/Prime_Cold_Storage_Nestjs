@@ -3,7 +3,7 @@ import axios from 'axios';
 
 @Injectable()
 export class DiagramService {
-  private readonly sourceUrl = 'http://13.234.241.103:1880/prime_cold';
+  private readonly sourceUrl = 'http://43.204.118.114:6881/prime_cold';
 
   private readonly meterTitles: Record<string, string> = {
     "U1": "Wapda",/*  */

@@ -28,7 +28,7 @@ export class AlarmsService {
   ) {}
 
   async checkAlarms() {
-    const url = 'http://13.234.241.103:1880/prime_cold';
+    const url = 'http://43.204.118.114:6881/prime_cold';
     let url_data: Record<string, number>;
 
     try {
