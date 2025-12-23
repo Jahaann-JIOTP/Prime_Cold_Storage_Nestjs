@@ -31,7 +31,7 @@ export class AuthService {
 
     async login(user: UserDocument) {
         // Check if the email is locked
-        if (user.email === 'automation@jiotp.com') {
+        if (user.email === 'automation@jiotp1.com') {
             return {
                 message: 'Access Restricted. Due To Pending Payment.',
                 access_token: null,
