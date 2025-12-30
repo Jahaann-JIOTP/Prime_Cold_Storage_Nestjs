@@ -47,7 +47,7 @@ import { Room7Module } from './dashboard/room7/room7.module';
     ConfigModule.forRoot({ isGlobal: true }),
 
     // ✅ Primary DB (iotdb)
-    MongooseModule.forRoot(process.env.IOTDB_URI!),
+    // MongooseModule.forRoot(process.env.PRIMECOLD_URI!),
     // MongooseModule.forRoot(process.env.ALARMDB_URI!, {
     //   connectionName: 'Prime_Cold_Alarms',
     // }),
