@@ -110,7 +110,7 @@ import * as moment from 'moment-timezone';
 
 @Injectable()
 export class LogsDataService {
-  constructor(@InjectConnection() private readonly connection: Connection) {}
+  constructor(@InjectConnection('prime_cold') private readonly connection: Connection) {}
 
   private readonly tagGroups = {
     voltage: [
