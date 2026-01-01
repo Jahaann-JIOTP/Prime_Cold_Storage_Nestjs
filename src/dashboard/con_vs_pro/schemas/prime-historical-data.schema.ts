@@ -23,6 +23,7 @@ export class PrimeHistoricalData {
   @Prop()
   U5_Active_Energy_Total_Consumed?: number;
 
+
   // Rooms
   @Prop()
   U6_Active_Energy_Total_Consumed?: number;
@@ -44,6 +45,10 @@ export class PrimeHistoricalData {
 
   @Prop()
   U12_Active_Energy_Total_Consumed?: number;
+  @Prop()
+  U13_Active_Energy_Total_Consumed?: number;
+  @Prop()
+  U14_Active_Energy_Total_Consumed?: number;
 }
 
 export type PrimeHistoricalDataDocument = PrimeHistoricalData & Document;

@@ -25,6 +25,8 @@ export class EnergyService
             'U10',
             'U11',
             'U12',
+            'U13',
+            'U14'
         ];
         const suffixes: string[] = [
             'Active_Energy_Total_Consumed',
@@ -39,9 +41,10 @@ export class EnergyService
 
         // Compressors
         const Compressor1Key = 'U3_Active_Energy_Total_Consumed';
-        const Compressor2Key = 'U4_Active_Energy_Total_Consumed';
+        const Compressor2Key = 'U13_Active_Energy_Total_Consumed';
         const Compressor3Key = 'U5_Active_Energy_Total_Consumed';
-
+        const CondensorpumpKey = 'U4_Active_Energy_Total_Consumed';
+        const CondensormotorKey = 'U14_Active_Energy_Total_Consumed';
         // Rooms mapping
         const RoomKeys = {
             Room1: 'U7_Active_Energy_Total_Consumed',
@@ -120,7 +123,9 @@ export class EnergyService
         const Compressor1 = consumption[ Compressor1Key ] || 0;
         const Compressor2 = consumption[ Compressor2Key ] || 0;
         const Compressor3 = consumption[ Compressor3Key ] || 0;
-        const production = Compressor1 + Compressor2 + Compressor3;
+        const Condensormotor = consumption [CondensormotorKey] || 0;
+        const Condensorpump = consumption [CondensorpumpKey] || 0;
+        const production = Compressor1 + Compressor2 + Compressor3 + Condensormotor + Condensorpump;
 
         // Rooms
         const roomConsumption: Record<string, number> = {};
@@ -151,6 +156,8 @@ export class EnergyService
                 Compressor1: Compressor1.toFixed( 5 ),
                 Compressor2: Compressor2.toFixed( 5 ),
                 Compressor3: Compressor3.toFixed( 5 ),
+                Condensormotor: Condensormotor.toFixed(5),
+                Condensorpump: Condensorpump.toFixed(5),
                 Sum_of_compressors: production.toFixed( 5 ),
 
                 // Rooms
@@ -173,8 +180,10 @@ export class EnergyService
         'room6': 'U12_Total_Active_Power',
         'room7': 'U6_Total_Active_Power',
         'compressor1': 'U3_Total_Active_Power',
-        'compressor2': 'U5_Total_Active_Power',
-        'condensorpump': 'U4_Total_Active_Power'
+        'compressor3': 'U5_Total_Active_Power',
+        'compressor2': 'U13_Total_Active_Power',
+        'condensorpump': 'U4_Total_Active_Power',
+        'condensormotor':'U14_Total_Active_Power'
     };
 
     private readonly energyConsumptionMapping: { [ key: string ]: string } = {
@@ -186,7 +195,9 @@ export class EnergyService
         'room6': 'U12_Active_Energy_Total_Consumed',
         'room7': 'U6_Active_Energy_Total_Consumed',
         'compressor1': 'U3_Active_Energy_Total_Consumed',
-        'compressor2': 'U5_Active_Energy_Total_Consumed',
+        'compressor3': 'U5_Active_Energy_Total_Consumed',
+        'compressor2': 'U13_Active_Energy_Total_Consumed',
+        'condensormotor': 'U14_Active_Energy_Total_Consumed',
         'condensorpump': 'U4_Active_Energy_Total_Consumed'
     };
 
@@ -199,8 +210,10 @@ export class EnergyService
         'room6': 'Room 6',
         'room7': 'Room 7',
         'compressor1': 'Compressor 1',
+        'compressor3': 'Compressor 3',
         'compressor2': 'Compressor 2',
-        'condensorpump': 'Condensor Pump (1+2)'
+        'condensorpump': 'Condensor Pump (1+2)',
+        'condensormotor':'Condensor Motor'
     };
 
     async getComputedHoursVsKWH ( startDate: string, endDate: string, meterId: string[] )
@@ -336,7 +349,7 @@ export class EnergyService
                             },
                             { [ energyField ]: 1, timestamp: 1 },
                         ).sort( { timestamp: 1 } ).lean();
-
+console.log(firstEnergyDoc)
                         const lastEnergyDoc = await this.energyModel.findOne(
                             {
                                 timestamp: { $gte: dayStartISO, $lte: dayEndISO },
@@ -344,7 +357,7 @@ export class EnergyService
                             },
                             { [ energyField ]: 1, timestamp: 1 },
                         ).sort( { timestamp: -1 } ).lean();
-
+console.log(lastEnergyDoc)
                         console.log( `Energy results for ${ meter }:`, {
                             firstDoc: firstEnergyDoc ? {
                                 value: firstEnergyDoc[ energyField ],

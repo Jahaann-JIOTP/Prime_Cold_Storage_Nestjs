@@ -136,6 +136,14 @@ export class LogsDataService {
       'Active_Energy_Total_Consumed',
       'Active_Energy_Total_Supplied',
     ],
+    harmonics:[
+      'Harmonics_V1_THD',
+      'Harmonics_V2_THD',
+      'Harmonics_V3_THD',
+      'Harmonics_I1_THD',
+      'Harmonics_I2_THD',
+      'Harmonics_I3_THD'
+    ]
   };
 
   private readonly avgFieldMap = {
@@ -171,6 +179,7 @@ export class LogsDataService {
     };
 
     const data = await collection.find(dbQuery).toArray();
+    console.log(data)
     console.log(`Fetched ${data.length} records`);
 
     const results: any[] = [];
@@ -201,6 +210,7 @@ export class LogsDataService {
         // Base tags
         for (const tag of tagsToFetch) {
           const field = `${meterId}_${tag}`;
+          console.log(field)
           if (item[field] !== undefined) {
             entry[tag] = item[field];
           }

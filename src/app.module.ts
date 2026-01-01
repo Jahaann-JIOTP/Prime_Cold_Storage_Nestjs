@@ -41,6 +41,8 @@ import { Room4Module } from './dashboard/room4/room4.module';
 import { Room5Module } from './dashboard/room5/room5.module';
 import { Room6Module } from './dashboard/room6/room6.module';
 import { Room7Module } from './dashboard/room7/room7.module';
+import { Compressor4Module } from './dashboard/condensorpump/condensorpump.module';
+import { Compressor5Module } from './dashboard/condensormotor/condensormotor.module';
 
 @Module({
   imports: [
@@ -76,11 +78,12 @@ import { Room7Module } from './dashboard/room7/room7.module';
     Compressor2Module,
     Compressor3Module,
     Compressor1Module,
+    Compressor4Module,
+    Compressor5Module,
     // LogsModule,
     LogsDataModule,
     CompressorRuntimeModule,
     NodeRedLinkModule,
-
     Room1Module,
     Room2Module,
     Room3Module,

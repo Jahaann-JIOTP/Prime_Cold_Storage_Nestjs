@@ -1,23 +1,22 @@
+
 import { Injectable } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import * as moment from 'moment-timezone';
-import { transformerDocument } from './schemas/transformer.schema';
-import { GettransformerDto } from './dto/get-transformer.dto';
+import { Compressor2Document } from './schemas/condensormotor.schema';
+import { Getcompressor2Dto } from './dto/get-compressor.dto';
 
 
 @Injectable()
-export class TransformerService {
-  private readonly transformerKeys = ['U1_Active_Energy_Total_Consumed'];
+export class Compressor5Service {
+  private readonly Compressor2Keys = ['U14_Active_Energy_Total_Consumed'];
 
   constructor(
-    @InjectModel('transformer') private readonly transformerModel: Model<transformerDocument>,
+    @InjectModel('Compressor5') private readonly compressorModel: Model<Compressor2Document>,
   ) {}
 
 
-
-
-  async handleQuery(query: GettransformerDto) {
+  async handleQuery(query: Getcompressor2Dto) {
     switch (query.value) {
       case 'today':
         return this.getTodayData();
@@ -33,7 +32,7 @@ export class TransformerService {
   }
 
 async getTodayData() {
-  const collection = this.transformerModel.collection;
+   const collection = this.compressorModel.collection;
 
   const now = moment().tz("Asia/Karachi");
 
@@ -49,7 +48,7 @@ async getTodayData() {
   };
 
   const projection: any = { timestamp: 1 };
-  this.transformerKeys.forEach((key) => (projection[key] = 1));
+  this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
   const data = await collection
     .aggregate([
@@ -100,8 +99,10 @@ async getTodayData() {
 
   function findBoundingDocs(docs: any[], targetTime: number) {
     if (docs.length === 0) return { before: null, after: null };
+
     let before = null;
     let after = null;
+
     let low = 0, high = docs.length - 1;
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
@@ -130,7 +131,7 @@ async getTodayData() {
     let todayTotal = 0;
     let yesterdayTotal = 0;
 
-    for (const key of this.transformerKeys) {
+    for (const key of this.Compressor2Keys) {
       const yStart = yesterdayHours[h].valueOf();
       const yEnd = yesterdayHours[h + 1].valueOf();
       const tStart = todayHours[h].valueOf();
@@ -165,8 +166,12 @@ async getTodayData() {
   return hourly;
 }
 
+
+
+
+
   async getWeekData() {
-   const collection = this.transformerModel.collection;
+    const collection = this.compressorModel.collection;
 
     const now = new Date();
 
@@ -186,7 +191,7 @@ async getTodayData() {
     };
 
     const projection: any = { timestamp: 1 };
-    this.transformerKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
       .aggregate([
@@ -205,7 +210,7 @@ async getTodayData() {
       const weekLabel =
         date >= startOfThisWeek && date <= endOfThisWeek ? 'This Week' : 'Last Week';
 
-      for (const key of this.transformerKeys) {
+      for (const key of this.Compressor2Keys) {
         if (doc[key] != null) {
           firstValues[day] ??= {};
           lastValues[day] ??= {};
@@ -227,7 +232,7 @@ async getTodayData() {
       let thisWeekTotal = 0;
       let lastWeekTotal = 0;
 
-      for (const key of this.transformerKeys) {
+      for (const key of this.Compressor2Keys) {
         if (
           firstValues?.[day]?.['This Week']?.[key] != null &&
           lastValues?.[day]?.['This Week']?.[key] != null
@@ -254,7 +259,7 @@ async getTodayData() {
   }
 
   async getYearData() {
-   const collection = this.transformerModel.collection;
+    const collection = this.compressorModel.collection;
   
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -269,7 +274,7 @@ async getTodayData() {
     };
   
     const projection: any = { timestamp: 1 };
-    this.transformerKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
   
     try {
       const data = await collection.aggregate([
@@ -296,7 +301,7 @@ async getTodayData() {
           dailyLastValues[year][dateStr] = {};
         }
   
-        this.transformerKeys.forEach(key => {
+        this.Compressor2Keys.forEach(key => {
           if (doc[key] != null) {
             if (!(key in dailyFirstValues[year][dateStr])) {
               dailyFirstValues[year][dateStr][key] = doc[key];
@@ -322,7 +327,7 @@ async getTodayData() {
           const month = moment(date).format('MMM');
   
           let dailyTotal = 0;
-          this.transformerKeys.forEach(key => {
+          this.Compressor2Keys.forEach(key => {
             const first = dailyFirstValues[year][dateStr][key];
             const last = dailyLastValues[year][dateStr][key];
             if (first != null && last != null) {
@@ -353,7 +358,7 @@ async getTodayData() {
     return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   async getMonthData() {
-   const collection = this.transformerModel.collection;
+     const collection = this.compressorModel.collection;
 
     const now = new Date();
     const startOfThisMonth = moment().startOf('month').toDate();
@@ -370,7 +375,7 @@ async getTodayData() {
     };
 
     const projection: any = { timestamp: 1 };
-    this.transformerKeys.forEach((key) => (projection[key] = 1));
+    this.Compressor2Keys.forEach((key) => (projection[key] = 1));
 
     const data = await collection
         .aggregate([
@@ -390,7 +395,7 @@ async getTodayData() {
             dailyConsumption[formattedDate] = {};
         }
 
-        for (const key of this.transformerKeys) {
+        for (const key of this.Compressor2Keys) {
             if (doc[key] != null) {
                 if (!dailyConsumption[formattedDate][key]) {
                     dailyConsumption[formattedDate][key] = { first: null, last: null };
@@ -431,7 +436,7 @@ async getTodayData() {
         const dateData = dailyConsumption[date];
         let totalConsumption = 0;
 
-        for (const key of this.transformerKeys) {
+        for (const key of this.Compressor2Keys) {
             const keyData = dateData[key];
             if (keyData && keyData.first != null && keyData.last != null) {
                 totalConsumption += keyData.last - keyData.first;

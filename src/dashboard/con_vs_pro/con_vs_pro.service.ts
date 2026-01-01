@@ -399,6 +399,8 @@ type HourlyResult = {
   compressor1: number;
   compressor2: number;
   compressor3: number;
+  condensorpump: number;
+  condensormotor: number;
   losses: number;
   room1: number;
   room2: number;
@@ -481,10 +483,10 @@ export class ConVsProService {
           },
 
           first_compressor2: {
-            $first: { $ifNull: ['$U4_Active_Energy_Total_Consumed', 0] },
+            $first: { $ifNull: ['$U13_Active_Energy_Total_Consumed', 0] },
           },
           last_compressor2: {
-            $last: { $ifNull: ['$U4_Active_Energy_Total_Consumed', 0] },
+            $last: { $ifNull: ['$U13_Active_Energy_Total_Consumed', 0] },
           },
 
           first_compressor3: {
@@ -493,7 +495,18 @@ export class ConVsProService {
           last_compressor3: {
             $last: { $ifNull: ['$U5_Active_Energy_Total_Consumed', 0] },
           },
-
+          first_condensorpump: {
+            $first: { $ifNull: ['$U4_Active_Energy_Total_Consumed', 0] },
+          },
+          last_condensorpump: {
+            $last: { $ifNull: ['$U4_Active_Energy_Total_Consumed', 0] },
+          },
+          first_condensormotor: {
+            $first: { $ifNull: ['$U14_Active_Energy_Total_Consumed', 0] },
+          },
+          last_condensormotor: {
+            $last: { $ifNull: ['$U14_Active_Energy_Total_Consumed', 0] },
+          },
           // Rooms (U6–U12)
           first_room1: {
             $first: { $ifNull: ['$U7_Active_Energy_Total_Consumed', 0] },
@@ -560,6 +573,10 @@ export class ConVsProService {
         (entry.last_compressor2 || 0) - (entry.first_compressor2 || 0);
       const compressor3 =
         (entry.last_compressor3 || 0) - (entry.first_compressor3 || 0);
+        const condensormotor =
+        (entry.last_condensormotor || 0) - (entry.first_condensormotor || 0);
+        const condensorpump =
+        (entry.last_condensorpump || 0) - (entry.first_condensorpump|| 0);
 
       const room1 = (entry.last_room1 || 0) - (entry.first_room1 || 0);
       const room2 = (entry.last_room2 || 0) - (entry.first_room2 || 0);
@@ -573,6 +590,8 @@ export class ConVsProService {
         compressor1 +
         compressor2 +
         compressor3 +
+        condensormotor+
+        condensorpump+
         room1 +
         room2 +
         room3 +
@@ -595,6 +614,8 @@ export class ConVsProService {
         compressor1: +compressor1.toFixed(2),
         compressor2: +compressor2.toFixed(2),
         compressor3: +compressor3.toFixed(2),
+        condensorpump: +condensorpump.toFixed(2),
+        condensormotor: +condensormotor.toFixed(2),
         losses: +losses.toFixed(2),
         room1: +room1.toFixed(2),
         room2: +room2.toFixed(2),
@@ -627,6 +648,8 @@ export class ConVsProService {
       'U10',
       'U11',
       'U12',
+      'U13',
+      'U14'
     ];
     const suffixes: string[] = [
       'Active_Energy_Total_Consumed',
@@ -690,9 +713,10 @@ export class ConVsProService {
       const wapda = sumGroup(WapdaKeys);
 
       const compressor1 = consumption['U3_Active_Energy_Total_Consumed'] || 0;
-      const compressor2 = consumption['U4_Active_Energy_Total_Consumed'] || 0;
+      const compressor2 = consumption['U13_Active_Energy_Total_Consumed'] || 0;
       const compressor3 = consumption['U5_Active_Energy_Total_Consumed'] || 0;
-
+      const condensormotor = consumption['U14_Active_Energy_Total_Consumed'] || 0;
+      const condensorpump = consumption['U4_Active_Energy_Total_Consumed'] || 0;
       const room1 = consumption['U7_Active_Energy_Total_Consumed'] || 0;
       const room2 = consumption['U8_Active_Energy_Total_Consumed'] || 0;
       const room3 = consumption['U9_Active_Energy_Total_Consumed'] || 0;
@@ -706,6 +730,8 @@ export class ConVsProService {
         compressor1 +
         compressor2 +
         compressor3 +
+        condensormotor +
+        condensorpump +
         room1 +
         room2 +
         room3 +
@@ -723,6 +749,8 @@ export class ConVsProService {
         compressor1: +compressor1.toFixed(5),
         compressor2: +compressor2.toFixed(5),
         compressor3: +compressor3.toFixed(5),
+        condensormotor: +condensormotor.toFixed(5),
+        condensorpump: +condensorpump.toFixed(5),
         losses: +losses.toFixed(2),
         room1: +room1.toFixed(5),
         room2: +room2.toFixed(5),
@@ -751,8 +779,10 @@ export class ConVsProService {
       { name: 'solar', field: 'U2_Active_Energy_Total_Consumed' },
       { name: 'wapda', field: 'U1_Active_Energy_Total_Consumed' },
       { name: 'compressor1', field: 'U3_Active_Energy_Total_Consumed' },
-      { name: 'compressor2', field: 'U4_Active_Energy_Total_Consumed' },
+      { name: 'compressor2', field: 'U13_Active_Energy_Total_Consumed' },
       { name: 'compressor3', field: 'U5_Active_Energy_Total_Consumed' },
+      { name: 'condensormotor', field: 'U14_Active_Energy_Total_Consumed' },
+      { name: 'condensorpump', field: 'U4_Active_Energy_Total_Consumed' },
       { name: 'room1', field: 'U7_Active_Energy_Total_Consumed' },
       { name: 'room2', field: 'U8_Active_Energy_Total_Consumed' },
       { name: 'room3', field: 'U9_Active_Energy_Total_Consumed' },
@@ -820,6 +850,8 @@ export class ConVsProService {
             compressor1: 0,
             compressor2: 0,
             compressor3: 0,
+            condensormotor:0,
+            condensorpump:0,
             room1: 0,
             room2: 0,
             room3: 0,
@@ -838,6 +870,8 @@ export class ConVsProService {
         entry.compressor1 +
         entry.compressor2 +
         entry.compressor3 +
+        entry.condensormotor +
+        entry.condensorpump +
         entry.room1 +
         entry.room2 +
         entry.room3 +

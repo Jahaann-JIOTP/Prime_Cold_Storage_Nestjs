@@ -54,6 +54,8 @@ export class AlarmsService {
         'U10',
         'U11',
         'U12',
+        'U13',
+        'U14'
       ];
       for (const unit of units) {
         const v1 = Number(url_data[`${unit}_Voltage_L1L2`] || 0);
@@ -110,9 +112,15 @@ export class AlarmsService {
       'Compressor1 Low Voltage': 'U3_Voltage_AVG',
       'Compressor1 High Voltage': 'U3_Voltage_AVG',
       'Compressor1 High Current': 'U3_Current_AVG',
-      'Compressor2 Low Voltage': 'U4_Voltage_AVG',
-      'Compressor2 High Voltage': 'U4_Voltage_AVG',
-      'Compressor2 High Current': 'U4_Current_AVG',
+      'Compressor2 Low Voltage': 'U13_Voltage_AVG',
+      'Compressor2 High Voltage': 'U13_Voltage_AVG',
+      'Compressor2 High Current': 'U13_Current_AVG',
+      'Condensormotor Low Voltage': 'U14_Voltage_AVG',
+      'Condensormotor High Voltage': 'U14_Voltage_AVG',
+      'Condensormotor High Current': 'U14_Current_AVG',
+      'Condensorpump Low Voltage': 'U4_Voltage_AVG',
+      'Condensorpump High Voltage': 'U4_Voltage_AVG',
+      'Condensorpump High Current': 'U4_Current_AVG',
       'Compressor3 Low Voltage': 'U5_Voltage_AVG',
       'Compressor3 High Voltage': 'U5_Voltage_AVG',
       'Compressor3 High Current': 'U5_Current_AVG',

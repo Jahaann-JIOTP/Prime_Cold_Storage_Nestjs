@@ -9,7 +9,7 @@ import { Getcompressor2Dto } from './dto/get-compressor.dto';
 
 @Injectable()
 export class Compressor2Service {
-  private readonly Compressor2Keys = ['U4_Active_Energy_Total_Consumed'];
+  private readonly Compressor2Keys = ['U13_Active_Energy_Total_Consumed'];
 
   constructor(
     @InjectModel('Compressor2') private readonly compressorModel: Model<Compressor2Document>,
