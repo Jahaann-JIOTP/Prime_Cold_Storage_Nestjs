@@ -128,6 +128,8 @@ export class LogsDataService {
       'Active_Power_L3',
       'Total_Active_Power',
     ],
+    reactive_power:['ReactivePower_L1_kVAR','ReactivePower_L2_kVAR','ReactivePower_L3_kVAR'],
+    apparent_power:['ApparentPower_L1_kVA','ApparentPower_L2_kVA','ApparentPower_L3_kVA'],
     power_factor: ['Power_Factor_L1', 'Power_Factor_L2', 'Power_Factor_L3'],
     reactive_energy: ['Reactive_Energy_Total'],
     apparent_energy: ['Apparent_Energy_Total'],
