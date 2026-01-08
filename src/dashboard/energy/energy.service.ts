@@ -140,9 +140,9 @@ export class EnergyService
 
         // ✅ Total Consumption (Compressors + Rooms)
         const totalConsumption = production + totalRooms;
-
+          console.log(Wapda2,totalGeneration,totalConsumption)
         // Unaccountable
-        const unaccountable = totalGeneration - totalConsumption;
+        const unaccountable = (totalGeneration - Wapda2) - totalConsumption;
 
         return {
             total_consumption: {
